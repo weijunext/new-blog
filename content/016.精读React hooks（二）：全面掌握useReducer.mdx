@@ -1,0 +1,333 @@
+---
+title: 精读React hooks（二）：全面掌握useReducer
+description: 随着应用逐渐复杂，useState在管理复杂的状态逻辑时显得有些力不从心。这时，就要使用useReducer来帮助我们优雅地处理复杂状态。
+slug: react-hook-useReducer
+slugId: 486d38b7-bb0a-4493-a72c-01077000b098
+tags: React
+date: 2023-09-03
+---
+
+[上一篇文章](/article/react-hook-useState)中，我们学习了`useState`的一些基础用法和进阶技巧，`useState`是React的一个基础Hook，允许我们在函数组件中存储状态。
+
+随着应用逐渐复杂，我们经常发现`useState`在管理复杂的状态逻辑时显得有些力不从心。这时，React为我们提供的另一个更为强大的hook——`useReducer`——可以帮助我们优雅地处理复杂状态。
+
+`useReducer`允许我们使用 action 和 reducer 的方式来组织复杂的状态逻辑，使其变得更加清晰和模块化，弥补了`useState`的局限性。
+
+## 基础用法
+
+与`useState`相似，`useReducer`也是 React 的 Hook，而且也只能放在组件最顶层使用。与前者不同的地方在于，它是通过 action 来更新状态的，使状态更新逻辑更具可读性。
+
+`useReducer`**接收三个参数**：
+
+- reducer 函数：指定如何更新状态的还原函数，它必须是纯函数，以 state 和 dispatch 为参数，并返回下一个状态。
+- 初始状态：初始状态的计算值。
+- （可选的）初始化参数：用于返回初始状态。如果未指定，初始状态将设置为 initialArg；如果有指定，初始状态将被设置为调用`init(initialArg)`的结果。
+
+`useReducer`**返回两个参数**：
+
+- 当前的状态：当前状态。在第一次渲染时，它会被设置为`init(initialArg)`或 initialArg（如果没有 init 的情况下）。
+- dispatch：调度函数，用于调用 reducer 函数，以更新状态并触发重新渲染。
+
+基本形式如下：
+
+```
+const [state, dispatch] = useReducer(reducer, initialArg, init?)
+```
+
+通常情况下，我们只会用到`useReducer`的前两个参数，如这个计数器组件：
+
+```jsx
+const initialState = { count: 0 };
+
+function reducer(state, action) {
+  switch (action.type) {
+    case 'increment':
+      return { count: state.count + 1 };
+    case 'decrement':
+      return { count: state.count - 1 };
+    default:
+      throw new Error();
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  return (
+    <>
+      Count: {state.count}
+      <button onClick={() => dispatch({ type: 'decrement' })}>-</button>
+      <button onClick={() => dispatch({ type: 'increment' })}>+</button>
+    </>
+  );
+}
+```
+
+**使用`dispatch`的注意事项**
+
+- `dispatch`调用后，状态更新是异步的，因此立刻读取状态可能仍是旧的。
+    
+    ```jsx
+    function addCount() {
+    	dispatch({ type: 'increment' })
+    	console.log(state.count) // 打印出来的不是新值
+    }
+    
+    <button onClick={addCount}>+</button>
+    ```
+    
+- React 对`dispatch`有一个优化机制：如果`dispatch`触发更新前后的值相等（使用[Object.is](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/is)判断），实际上React不会进行重新渲染，这是出于性能考虑。
+
+**使用`reducer`函数的注意事项**
+
+你在`reducer`里面更新对象和数组的状态，需要创建一个新的对象或数组，而不是在原对象和数组上修改，这一点和`useState`是一样的。
+
+## **初始化状态：使用`init`函数**
+
+上一节我们提到了`useReducer`还有第三个参数`init`，那么它的作用是什么？它也是为了性能优化而来。
+
+我们先假设一个场景，计数器的值保存在`localStorage`里面，进入页面的时候，我们希望从`localStorage`中读取值来作为`useReducer`初值，如果没有`init`，我们可以这样做：
+
+```jsx
+function getInitialCount() {
+  const savedCount = localStorage.getItem("count");
+  return savedCount ? Number(savedCount) : 0;
+}
+
+function counterReducer(state, action) {
+  switch (action.type) {
+    case "INCREMENT":
+      return { count: state.count + 1 };
+    case "DECREMENT":
+      return { count: state.count - 1 };
+    default:
+      return state;
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(counterReducer, getInitialCount());
+
+  // 使用useEffect来监听状态的变化，并将其保存到localStorage
+  useEffect(() => {
+    localStorage.setItem("count", state.count);
+  }, [state.count]);
+
+  return (
+    <>
+      Count: {state.count}
+      <button onClick={() => dispatch({ type: "INCREMENT" })}>+1</button>
+      <button onClick={() => dispatch({ type: "DECREMENT" })}>-1</button>
+    </>
+  );
+}
+```
+
+在这个例子中，我们直接调用`getInitialCount`函数作为`useReducer`的第二个参数，从而得到初始状态。当React初始化这个组件时，它会执行这个函数并使用其返回值作为初始状态。
+
+如果在第三个参数里进行初始化，代码是这样写：
+
+```jsx
+function init(initialValue) {
+  // 尝试从localStorage中读取值
+  const savedCount = localStorage.getItem("count");
+
+  // 如果有值并且可以被解析为数字，则返回它，否则返回initialValue
+  return { count: savedCount ? Number(savedCount) : initialValue };
+}
+
+function counterReducer(state, action) {
+  switch (action.type) {
+    case "INCREMENT":
+      return { count: state.count + 1 };
+    case "DECREMENT":
+      return { count: state.count - 1 };
+    default:
+      return state;
+  }
+}
+
+function Counter() {
+  const [state, dispatch] = useReducer(counterReducer, 0, init);
+
+  // 使用useEffect来监听状态的变化，并将其保存到localStorage
+  useEffect(() => {
+    localStorage.setItem("count", state.count);
+  }, [state.count]);
+
+  return (
+    <>
+      Count: {state.count}
+      <button onClick={() => dispatch({ type: "INCREMENT" })}>+1</button>
+      <button onClick={() => dispatch({ type: "DECREMENT" })}>-1</button>
+    </>
+  );
+}
+```
+
+这两种方式看似差不多，但它们区别很大：
+
+1. **执行时机**：
+    - 直接调用函数作为第二个参数：这个函数会在每次组件渲染时执行。
+    - 使用`init`函数：`init`函数只在组件初次渲染时执行一次。
+2. **访问到的数据**：
+    - 直接调用函数作为第二个参数：这个函数只能访问到定义它时的作用域内的数据。
+    - 使用`init`函数：由于`init`函数接受`initialArg`作为参数，这使得`init`函数具有更大的灵活性，能够基于传入的参数进行计算。
+3. **代码组织**：
+    - 直接调用函数作为第二个参数：这通常更简洁，适合那些简单的初始化逻辑。
+    - 使用`init`函数：它提供了更清晰的代码组织结构，特别是当初始化逻辑相对复杂或需要根据传入的参数变化时。
+4. **性能**：
+    - 直接调用函数作为第二个参数：如果这个函数执行了一些计算密集或副作用的操作，那么在每次组件渲染时都会执行，可能会导致性能问题。
+    - 使用`init`函数：由于它只在组件的初始化阶段执行一次，所以对于那些计算密集的初始化操作，使用`init`函数可能会更为高效。
+
+总结一下，两者都可以用于初始化状态，如果你的初始化逻辑简单并且没有性能顾虑，可以直接使用一个函数作为`useReducer`的第二个参数，但如果你需要基于传入的参数来决定初始化逻辑或者想确保性能最优的做法，那么应该使用`init`函数。
+
+# 高级技巧
+
+### 中间件
+
+就像Redux中的中间件，我们可以利用`dispatch`创建一个中间件方法，支持调用`dispatch`之前或之后执行代码。
+
+```jsx
+function thunkMiddleware(dispatch) {
+    return function(action) {
+        if (typeof action === 'function') {
+            action(dispatch);
+        } else {
+            dispatch(action);
+        }
+				 // 代码在dispatch之后执行
+        console.log("Action dispatched at: ", new Date().toISOString());
+    };
+}
+
+function fetchData() {
+    return dispatch => {
+        fetch("/api/data")
+            .then(res => res.json())
+            .then(data => dispatch({ type: 'SET_DATA', payload: data }));
+    };
+}
+
+function App() {
+    const [state, unenhancedDispatch] = useReducer(reducer, initialState);
+    const dispatch = thunkMiddleware(unenhancedDispatch);
+    
+    useEffect(() => {
+        dispatch(fetchData());
+    }, [dispatch]);
+}
+```
+
+在这个示例中，通过将原始的`dispatch`包裹在另一个函数内部，中间件为我们提供了一个在真正的状态更新前后注入自定义逻辑的机会。
+
+示例中，我们在调用原始的`dispatch`之前首先检查了`action`的类型。实际上，你可以在这里添加任何你想要的逻辑，例如日志记录、错误处理、请求`API`等。在`dispatch`调用之后，依然可以添加额外的逻辑。
+
+### 与`useContext`一起使用
+
+结合`useContext`和`useReducer`可以创建简单的全局状态管理系统。
+
+我们就以此来尝试创建一个完整的主题切换系统：
+
+首先，定义状态、reducer 和 context:
+
+```jsx
+const ThemeContext = React.createContext();
+
+const initialState = { theme: 'light' };
+
+function themeReducer(state, action) {
+    switch (action.type) {
+        case 'TOGGLE_THEME':
+            return { theme: state.theme === 'light' ? 'dark' : 'light' };
+        default:
+            return state;
+    }
+}
+```
+
+接下来，创建一个Provider组件：
+
+```jsx
+function ThemeProvider({ children }) {
+    const [state, dispatch] = useReducer(themeReducer, initialState);
+
+    return (
+        <ThemeContext.Provider value={{ theme: state.theme, toggleTheme: () => dispatch({ type: 'TOGGLE_THEME' }) }}>
+            {children}
+        </ThemeContext.Provider>
+    );
+}
+```
+
+在子组件中，你可以轻松切换和读取主题：
+
+```
+function ThemedButton() {
+  const { theme, toggleTheme } = useContext(ThemeContext);
+
+  return (
+    <button style={{ backgroundColor: theme === 'light' ? '#fff' : '#000' }} onClick={toggleTheme}>
+      Toggle Theme
+    </button>
+  );
+}
+```
+
+这部分代码只是示例说明，完整的使用逻辑和 TypeScript 实现的源码已经发布到我的Github：[useReducer-useContext实现主题切换](https://github.com/weijunext/nextjs-learn-demos/tree/useReducer-useContext)
+
+## **`useReducer`与Redux：主要差异**
+
+虽然`useReducer`和Redux都采用了action和reducer的模式来处理状态，但它们在实现和使用上有几个主要的区别：
+
+- **范围**：`useReducer`通常在组件或小型应用中使用，而Redux被设计为大型应用的全局状态管理工具。
+- **中间件和扩展**：Redux支持中间件，这允许开发者插入自定义逻辑，例如日志、异步操作等。而`useReducer`本身不直接支持，但我们可以模拟中间件的效果。
+- **复杂性**：对于简单的状态管理，`useReducer`通常更简单和直接。但当涉及到复杂的状态逻辑和中间件时，Redux可能更具优势。
+
+## 结语
+
+`useReducer`作为 React 的一部分，它比`useState`强大，又比 Redux 轻量，尤其适合中小型应用或组件级状态管理。本文把`useReducer`的用法和注意项完整的讲解了一遍，吃透其中的知识点就能保证你对`useReducer`有足够的了解了。
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

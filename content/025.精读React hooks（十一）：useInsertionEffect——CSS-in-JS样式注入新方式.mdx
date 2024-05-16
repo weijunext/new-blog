@@ -1,0 +1,108 @@
+---
+title: 精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式
+description: useInsertionEffect是为CSS-in-JS库提供的一个hook，它让后者可以更合理地注入样式，本文就来介绍一下useInsertionEffect的用法和优势。
+slug: react-hook-useInsertionEffect
+slugId: ab3037b7-c0b6-4335-a869-431553a6b644
+tags: React
+date: 2023-09-16
+---
+
+React发展至今，已经不局限于前端开发框架的定位，它已经逐渐发展成框架的框架。为什么这么说呢？因为React这几年推出了很多服务于上层框架的API，这类API普通开发者一般不需要关注。在React hooks里，`useInsertionEffect`就是这样的定位——`useInsertionEffect`是为CSS-in-JS库提供的一个hook，它让后者可以更合理地注入样式，普通开发者可以不用关注`useInsertionEffect`。
+
+## `useInsertionEffect`能为CSS-in-JS带来什么？
+
+在`useInsertionEffect`出现以前，无论是使用`useEffect`注入还是`useLayoutEffect`注入，都存在重复计算和性能浪费的问题，而像`styled-components`使用babel插件则又显得不够灵活。
+
+为了弥补这些主流方案的不足，React用`useInsertionEffect`给CSS-in-JS库作者多一个选择，`useInsertionEffect`有这样的优点：
+
+1. **动态性**：允许在运行时动态地注入样式，这使得基于组件的状态、道具或上下文的样式变化变得容易。
+2. **及时注入**：保证了在任何布局效果触发之前插入样式，减少了样式的重复计算和布局抖动。
+
+总结来说，再高度动态样式的应用中，`useInsertionEffect`的表现会比其它方案更优秀。
+
+## `useInsertionEffect`基本使用
+
+这是基础用法的定义：
+
+```
+useInsertionEffect(setup, dependencies?)
+```
+
+在`setup`方法里可以做我们需要的处理，`dependencies`则是依赖数组，和`useEffect`、`useLayoutEffect`的依赖数组规则一样。
+
+现在来看个详细的用法示例：
+
+```
+import { useInsertionEffect } from 'react';
+
+function useDynamicStyle(styleObj) {
+  const cssString = convertStyleObjToCSS(styleObj); // 将样式对象转换为 CSS 字符串的辅助函数
+
+  useInsertionEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = cssString;
+    document.head.appendChild(styleElement);
+    return () => {
+      document.head.removeChild(styleElement);
+    };
+  }, [cssString]);
+}
+```
+
+在`useInsertionEffect`里面，我们可以动态注入`<style>`。
+
+## 注意事项
+
+- `useInsertionEffect`只在客户端运行，不能在服务器渲染期间运行。
+- 不能从`useInsertionEffect`中更新状态。这是因为`useInsertionEffect`专为插入操作设计的，而不是为响应式状态变化设计的。如果在`useInsertionEffect`里更新状态，会造成组件重新渲染。
+- 当`useInsertionEffect`运行时，refs还没有附加。如果你试图在`useInsertionEffect`中访问ref，你可能会得到`null`或未定义的值。
+- `useInsertionEffect`可能在DOM更新之前或之后运行，所以不能依赖于DOM在特定时刻的更新状态。这是因为`useInsertionEffect`的设计初衷是在任何布局效果触发之前插入元素，但它并不保证在 DOM 的任何特定更新之前或之后运行。因此，依赖于DOM在特定时刻的状态可能导致不可预测的行为。例如：假设你希望在`useInsertionEffect`中检查某个元素的尺寸。但由于 DOM 可能尚未更新，所以你得到的尺寸可能是旧的或不准确的。
+
+## 结语
+
+虽然`useInsertionEffect`是为CSS-in-JS库提供的，但作为一名想了解React生态的开发者，即使工作中用不到`useInsertionEffect`，掌握一下基础知识也是有利无害。
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

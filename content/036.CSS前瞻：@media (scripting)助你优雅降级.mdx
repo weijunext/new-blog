@@ -1,0 +1,51 @@
+---
+title: CSS前瞻：@media (scripting)助你优雅降级
+description: 介绍一个 CSS 的新特：@media (scripting) 。有了它，以后就可以针对网站是否支持JavaScript脚本进行CSS样式增强和优雅降级。
+slug: media-scripting
+tags: CSS技巧
+date: 2023-11-23
+---
+
+你能想象在CSS里判断JavaScript有没有被禁用吗？现在，CSS整活了，通过 `@media (scripting)` 特性，开发者就可以判断当前环境JavaScript的可用性。
+
+## 特性简介
+
+`@media (scripting)` 是CSS3新发布的媒体查询特性，它允许开发者基于客户端脚本（如 JavaScript）的支持情况来应用不同的样式。
+
+这个特性主要有三个值：
+
+- `none` 表示不支持脚本
+- `initial-only` 表示仅在页面加载时执行脚本
+- `enabled` 则表示脚本完全可用
+
+## 应用场景
+
+- 禁用脚本的网页：为那些因为辅助技术或安全设置禁用JavaScript的用户提供替代样式。
+- 渐进增强和优雅降级：为不支持脚本的浏览器进行样式降级。
+- 广告和追踪阻止：对于使用广告拦截器的用户，提供不依赖于脚本的内容和布局。
+
+## 使用示例
+
+考虑一个动态内容加载区域，它依赖于JavaScript。在不支持脚本的环境中，我们可以使用 `@media (scripting: none)` 提供一个备选的静态内容显示或友好的消息提示。以下是代码示例：
+
+```css
+.dynamic-content {
+  color: blue;
+  /* 其他样式 */
+}
+
+@media (scripting: none) {
+  .dynamic-content {
+    color: gray;
+    text-decoration: line-through;
+    /* 其他备选样式 */
+  }
+}
+
+```
+
+## 结语
+
+你问兼容性？额……年轻人，我们聊下一个话题吧
+
+![2.png](/assets/036/2.png)

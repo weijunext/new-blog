@@ -1,0 +1,18 @@
+---
+title: 记录一些好用的Markdown优化插件
+description: 一时Markdown一时爽，一直Markdown一直爽
+slug: markdown-lib
+slugId: f6c380a6-9568-4c3f-8f13-8c841ed73d37
+tags: Markdown
+date: 2023-08-15
+---
+
+一时`Markdown`一时爽，一直`Markdown`一直爽，爽就爽在要记太特么多的rehype和remark插件了。为了以后好查找，特此开篇记录好用的插件包。
+
+- **`rehype-pretty-code`**：用于美化代码块的样式和显示。它可以对代码进行语法高亮、添加行号等操作，以提升代码的可读性。
+- **`rehype-raw`**：用于保留 HTML 标签的原始内容，而不进行任何转换。它可以用于处理包含自定义 HTML 标签或特殊需求的内容。
+- **`rehype-slug`**：用于为标题生成唯一的 slug（URL-friendly string，常用于锚链接）。它可以将标题文本转换为小写、移除特殊字符等，以生成易于处理和识别的 slug。
+- **`rehype-stringify`**：用于将 **`rehype`** 的 AST（Abstract Syntax Tree）转换回 HTML 字符串。它可以将经过处理的 AST 转换为有效的 HTML 代码。
+- **`remark-gfm`**：用于扩展 **`remark`** 的功能，支持 GitHub Flavored Markdown (GFM) 的语法。它可以处理 GFM 的特殊语法，如任务列表、表格等。
+- **`remark-math`**：用于在 Markdown 中支持数学公式的渲染。它可以解析 LaTeX 或 MathML 格式的数学公式，并将其转换为 HTML 或其他格式进行显示。
+- **`remark-rehype`**：用于将 **`remark`** 的 AST 转换为 **`rehype`** 的 AST。它可以在 **`remark`** 和 **`rehype`** 之间进行转换，以便使用 **`rehype`** 的插件对 Markdown 进行进一步处理。

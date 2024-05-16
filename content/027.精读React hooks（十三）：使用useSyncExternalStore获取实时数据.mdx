@@ -1,0 +1,257 @@
+---
+title: 精读React hooks（十三）：使用useSyncExternalStore获取实时数据
+description: useSyncExternalStore是一个为库开发者设计的hook，作为一名应用开发者，你可以不用它，但有必要了解它。
+slug: react-hook-useSyncExternalStore
+slugId: 7a4d45e4-ca6d-44ad-abfd-36ee9a5bb1a4
+tags: React
+date: 2023-09-18
+---
+
+随着 React v18 引入并发模式，React 也支持了在处理多个任务时进行优先级调整，这意味着 React 可以“暂停”一个正在进行的渲染任务，切换到另一个更高优先级的任务，然后再回到原来的任务。这使得用户界面响应更快，但也带来了新的挑战，尤其是在状态管理方面——状态管理库需要确保它们提供的状态始终是最新的和同步的。`useSyncExternalStore`就是为解决并发模式下的状态同步问题而推出的——它提供了一种方法，确保即使在并发更新的情况下，组件也可以同步地从外部存储中获取数据。
+
+简单来说，`useSyncExternalStore`解决的是并发模式下数据流管理的问题。
+
+## `useSyncExternalStore`的使用
+
+这是`useSyncExternalStore`的用法定义：
+
+```
+const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)
+```
+
+它的三个参数用法比较复杂，这里详细介绍一下：
+
+1. `subscribe`：
+    - 类型：`((callback: () => void) => () => void)`
+    - 这是一个函数，其作用是订阅外部存储的变化。当外部存储发生变化时，它应该调用传入的 `callback`。
+    - 这个函数应该返回一个取消订阅的函数。这样，当组件被卸载或订阅被重新创建时，我们可以确保没有内存泄漏或无效的回调调用。
+2. `getSnapshot`：
+    - 类型：`() => Snapshot`
+    - 这是一个函数，其作用是从外部存储中获取当前的数据快照。
+    - 每次组件渲染时，`useSyncExternalStore`都会调用此函数来读取当前的数据状态。
+3. `getServerSnapshot?` (可选参数)：
+    - 类型： `() => Snapshot`
+    - 这个函数的作用与 `getSnapshot` 类似，但它是为服务端渲染（SSR）或预渲染时使用的。在客户端首次渲染或 hydrate 操作期间，React 会使用此函数而不是`getSnapshot`来读取数据的初始状态。这是为了确保在服务端渲染的内容与客户端的初始内容匹配，从而避免不必要的重新渲染和闪烁。如果你的应用不涉及服务端渲染，那么不需要这个参数。
+
+下面我们从几个应用开发者也能接触到的场景先学习`useSyncExternalStore`是怎么用的。
+
+### 从`store`里获取数据
+
+想象你要做一个博客文章的状态管理功能，你希望所有渲染文章列表的组件都能实时获取最新的数据，那么就可以这样做：
+
+先创建状态store：
+
+```jsx
+/*
+ * articlesStore.js 
+ */
+
+// 初始化文章 ID 计数器
+let nextId = 0;
+
+// 初始文章列表
+let articles = [{ id: nextId++, title: 'Article #1', content: 'This is the content of Article #1.' }];
+
+// 用于存储所有订阅文章列表更改的监听器
+let listeners = [];
+
+export const articlesStore = {
+  addArticle(title, content) {
+    articles = [...articles, { id: nextId++, title: title, content: content }];
+    // 通知所有监听器文章列表已更改
+    emitChange();
+  },
+  // 订阅文章列表更改的方法
+  subscribe(listener) {
+    // 添加新的监听器
+    listeners = [...listeners, listener];
+    // 返回一个取消订阅的函数
+    return () => {
+      // 删除监听器
+      listeners = listeners.filter(l => l !== listener);
+    };
+  },
+  // 获取当前文章列表的“快照”
+  getSnapshot() {
+    return articles;
+  }
+};
+
+// 通知所有监听器的辅助函数，遍历 listeners 数组并调用每个监听器
+function emitChange() {
+  for (let listener of listeners) {
+    listener();
+  }
+}
+```
+
+然后你可以在需要渲染文章列表的组件里实现实时数据渲染了：
+
+```jsx
+import { useSyncExternalStore } from 'react';
+import { articlesStore } from './articlesStore.js';
+
+export default function ArticlesApp() {
+  // 使用 useSyncExternalStore 订阅文章列表的更改
+  const articles = useSyncExternalStore(articlesStore.subscribe, articlesStore.getSnapshot);
+
+  // 当点击按钮时添加新文章的处理函数
+  const handleAddArticle = () => {
+    // ……
+    articlesStore.addArticle(title, content);
+  };
+
+  return (
+    <>
+      <button onClick={handleAddArticle}>Add Article</button>
+      <ul>
+        {/* 映射文章列表以显示每篇文章的标题和内容 */}
+        {articles.map(article => (
+          <li key={article.id}>
+            {* …… *}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+```
+
+这个示例只是为解释`useSyncExternalStore`的用法使用的，实际场景中的逻辑一定比这个复杂得多。但这个简单的示例已经足够让我们看到`useSyncExternalStore`的价值了——如果有多个组件会触发文章列表的更新，那么使用了`useSyncExternalStore`监听数据变化的组件都能实时刷新数据。在使用`useSyncExternalStore`以前，我们通常是在进入页面时获取新数据，或者用定时器定时来更新数据。
+
+### 从浏览器API获取数据
+
+现在我们用一个更加直观的示例来看看`useSyncExternalStore`的能力。
+
+我们计划用`useSyncExternalStore`来监听网络状态，并把网络状态显示在页面上。网络状态可以从`navigator`里的`onLine`获取。
+
+在代码设计层面，我们需要知道`useSyncExternalStore`更新的数据通常可能被多个组件引用，那么写一个自定义 hook 是最合理的方式，那么这个示例中我们就写一个自定义 hook 来实现核心逻辑：
+
+```jsx
+import { useSyncExternalStore } from 'react';
+
+export function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  return isOnline;
+}
+
+function getSnapshot() {
+  return navigator.onLine;
+}
+
+function subscribe(callback) {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+}
+```
+
+在页面调用`useOnlineStatus`就可以获取onLine的最新值：
+
+```jsx
+import { useOnlineStatus } from './useOnlineStatus.js';
+
+export default function StatusBar() {
+  const isOnline = useOnlineStatus();
+  return <h1>{isOnline ? '✅ Online' : '❌ Disconnected'}</h1>;
+}
+```
+
+这个示例完美地展示了`useSyncExternalStore`实时获取数据的能力，不信现在我们拔掉网线和插上网线，页面都会自动更新网络状态。你可以直接到[👉我的演示站](https://nextjs.weijunext.com/hooks/useSyncExternalStore)体验。
+
+![1.png](/assets/027/1.png)
+
+## 注意事项
+
+- `getSnapshot`的返回值不能总是不同的对象
+
+`useSyncExternalStore`依赖`getSnapshot`函数返回的值来决定是否重新渲染。如果每次都返回新的对象，即使对象的内容相同，React 会认为状态已经变化并重新渲染组件。
+
+```jsx
+function getSnapshot() {
+  // 🔴 getSnapshot 不要总是返回不同的对象
+  return {
+    todos: myStore.todos
+  };
+}
+```
+
+正确的返回值应该这样写：
+
+```jsx
+function getSnapshot() {
+  // ✅ 你可以返回不可变数据
+  return myStore.todos;
+}
+```
+
+- `subscribe`不要放在组件内定义
+
+如果 `subscribe` 函数在组件内部定义，那么每次组件渲染都会创建一个新的 `subscribe` 函数实例。这是由于 `useSyncExternalStore` 会在 `subscribe` 函数改变时重新订阅，这意味着每次重新渲染都会导致重新订阅，可能导致不必要的开销，尤其是当订阅操作涉及复杂的计算或外部资源时。
+
+```jsx
+function ChatIndicator() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot);
+  
+  // 🚩 总是不同的函数，所以 React 每次重新渲染都会重新订阅
+  function subscribe() {
+    // ...
+  }
+
+  // ...
+}
+```
+
+正确的做法是把 `subscribe` 函数移到组件外部，这样它在组件的整个生命周期中都保持不变；或者使用 `useCallback` 钩子来缓存 `subscribe` 函数。
+
+## 结语
+
+虽然`useImperativeHandle`对于应用开发者来说不是必要的，但如果你想拓展对 React 生态圈的认识，依然有必要了解一下`useImperativeHandle`的用法和使用场景，因为它能帮助你未来更好地理解优秀的第三方库的设计。
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

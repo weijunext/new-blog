@@ -1,0 +1,325 @@
+---
+title: 讲清楚 Next.js 里的 CSR, SSR, SSG 和 ISR
+description: NextJS 为开发者提供了一些列渲染方式——CSR, SSR, SSG, 和 ISR，本文探讨了这些渲染方式的优势和适用场景。
+slug: nextjs-csr-ssr-ssg-isr
+slugId: fa1588d6-c068-40ec-a587-4572bd349b25
+tags: NextJS
+date: 2023-09-01
+---
+
+在 Web 前端的圈子里，渲染是一个无法绕开的概念。渲染决定了用户能够看到什么，以及他们能多快看到。但是，所有的渲染不都是相同的。随着现代前端开发的演进，我们有了多种不同的渲染方式，每种都有其独特的优势和挑战。
+
+Next.js 作为 React 的上层框架，为开发者提供了一系列强大的渲染方式——从传统的客户端渲染（CSR）到服务器端渲染（SSR），再到静态网站生成（SSG）和最新的增量静态生成（ISR）：每一种方法都有其适用的场景。
+
+思考一下，为什么我们需要这么多的渲染策略？它们之间有什么不同？如何为你的项目选择合适的策略？在本篇文章中，我们将详细探讨这些问题，一起来深入了解 Next.js 的渲染策略。
+
+## 客户端渲染 (CSR)
+
+客户端渲染（CSR）是 React 应用程序的默认渲染策略。在 CSR 中，应用首次渲染会加载一个最小的 HTML 文件，其中包括负责渲染 DOM 的 JavaScript 文件。然后，由浏览器执行 JavaScript，从 API 获取数据并完成渲染。
+
+Next.js 中在 useEffect() 中请求数据就属于 CSR：
+
+```tsx
+import React, { useState, useEffect } from 'react'
+ 
+export function Page() {
+  const [data, setData] = useState(null)
+ 
+  useEffect(() => {
+    const fetchData = async () => {
+      const response = await fetch('https://nextjs.weijunext.com/data')
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      const result = await response.json()
+      setData(result)
+    }
+ 
+    fetchData().catch((e) => {
+      // handle the error as needed
+      console.error('An error occurred while fetching the data: ', e)
+    })
+  }, [])
+ 
+  return <p>{data ? `Your data: ${data}` : 'Loading...'}</p>
+}
+```
+
+这个示例中，在请求完成前会显示Loading，请求完成后就会把请求结果渲染到页面。
+
+### 优缺点
+
+**优点：**
+
+1. 服务器负载较轻，因为大部分工作都在客户端完成。
+2. 适用于高度交互的应用，如 SPA (单页应用)。
+3. 一旦页面加载完成，页面间的导航和互动会非常迅速。
+
+**缺点：**
+
+1. 首次加载时间可能较长，因为需要下载、解析和执行大量 JavaScript。
+2. 不利于 SEO，因为搜索引擎可能只看到空的 HTML，而不是实际内容。
+3. 增加了客户端的计算负担，可能导致手机等低功耗设备的性能问题。
+
+## 服务器端渲染 (SSR)
+
+Next.js 中，要使用服务器端渲染，需要导出一个名为 `getServerSideProps` 的异步函数。服务器将在每次请求页面时优先调用该函数。
+
+例如，假设页面需要预渲染频繁更新的数据（如下截图的页面访问量）。那你就可以编写 `getServerSideProps` 来获取这些数据并将其传递给页面
+
+![截图自：https://nextjs.weijunext.com](/assets/014/1.png)
+
+```tsx
+export default function Page({ data }) {
+  // Render data...
+
+	<div>{data.view}</div>
+}
+ 
+// This gets called on every request
+export async function getServerSideProps() {
+  // Fetch data from API
+  const res = await fetch(`/api/view`)
+  const data = await res.json()
+ 
+  // Pass data to the page via props
+  return { props: { data } }
+}
+```
+
+这个示例中，页面访问量的数据请求无法再浏览器控制台看到，因为`getServerSideProps`是在服务端执行的，页面渲染的时候就可以马上拿到访问量数据，不会像 CSR 那样有延迟。
+
+### 优缺点
+
+**优点：**
+
+1. 首次加载速度快，因为浏览器立即获得完整的页面内容。
+2. 有助于 SEO，因为搜索引擎可以直接爬取和索引完整的页面内容。
+3. 减轻了客户端的计算负担。
+
+**缺点：**
+
+1. 服务器压力较大，尤其是在高流量情况下。
+2. 总体延迟可能增加，因为每次页面请求都需要服务器处理。
+3. 可能需要额外的服务器资源和优化。
+
+## 静态网站生成 (SSG)
+
+如果页面静态网站生成 (SSG)，页面 HTML 将在 build 时生成。也就是说，如果你的页面已经发布到生产，这时想修改页面内容，只能重新 build 来完成更新。
+
+Next.js 支持在 build 时生成带数据或者不带数据的 HTML，来看示例，
+
+## 不带数据的静态页面
+
+```tsx
+function About() {
+  return <div>About</div>
+}
+ 
+export default About
+```
+
+### 带数据的静态页面
+
+带数据的静态页面又区分为两种，一种是页面内容依赖数据，一种是页面路径依赖数据。
+
+#### 页面内容依赖数据
+
+页面内容依赖数据，可以使用`getStaticProps`完成构建时的数据拉取
+
+```tsx
+export default function Blog({ posts }) {
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+
+// This function gets called at build time
+export async function getStaticProps() {
+  // Call an external API endpoint to get posts
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+ 
+  // By returning { props: { posts } }, the Blog component
+  // will receive `posts` as a prop at build time
+  return {
+    props: {
+      posts,
+    },
+  }
+}
+```
+
+只要页面内使用了`getStaticProps`，那么 Next.js 都将在 build 时调用并获取数据，然后把数据传给客户端（即 Blog 组件），最后把客户端代码打包成 HTML。
+
+#### 页面路径依赖数据
+
+页面路径依赖数据，要同时使用`getStaticProps`和`getStaticPaths`完成构建时的数据拉取。
+
+假设你创建了一个动态路由文件 `pages/posts/[id].js`，路由会根据 id 显示博客文章，而这个 id 是什么是由服务端告知客户端的。
+
+`getStaticProps`和`getStaticPaths`是这样联合使用的：
+
+```tsx
+export default function Post({ post }) {
+  // Render post...
+}
+ 
+// This function gets called at build time
+export async function getStaticPaths() {
+  // Call an external API endpoint to get posts
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+ 
+  // Get the paths we want to pre-render based on posts
+  const paths = posts.map((post) => ({
+    params: { id: post.id },
+  }))
+ 
+  // We'll pre-render only these paths at build time.
+  // { fallback: false } means other routes should 404.
+  return { paths, fallback: false }
+}
+ 
+// This also gets called at build time
+export async function getStaticProps({ params }) {
+  // params contains the post `id`.
+  // If the route is like /posts/1, then params.id is 1
+  const res = await fetch(`https://.../posts/${params.id}`)
+  const post = await res.json()
+ 
+  // Pass post data to the page via props
+  return { props: { post } }
+}
+```
+
+我们首先要使用`getStaticPaths`来获取需要预渲染的路径，然后再使用`getStaticProps`获取带有此 id 的博客文章，这样 build 时就能完成依次调用`getStaticPaths`和`getStaticProps`来实现动态路由的静态页面渲染。
+
+SSG 无疑是几种渲染方式里最快的，所以你应该在较少变动数据的页面尽量使用 SSG。
+
+### 优缺点
+
+**优点：**
+
+1. 极快的加载速度，因为服务器仅提供预生成的文件。
+2. 减轻了服务器压力，因为不需要实时渲染。
+3. 非常适合内容不经常变动的网站或应用。
+
+**缺点：**
+
+1. 不适合内容经常变动或需要实时更新的应用。
+2. 需要在内容变更时重新生成所有页面。
+3. 可能需要额外的构建和部署步骤。
+
+## 增量静态生成 (ISR)
+
+增量静态再生（ISR）建立在 SSG 的基础上，同时又有 SSR 的优点，ISR 允许页面的某些部分是静态的，而其他部分则可以在数据发生变化时动态渲染。ISR 在性能和内容更新之间取得了平衡，因此适用于内容经常更新的站点。
+
+先来看一个示例：
+
+```tsx
+function Blog({ posts }) {
+  return (
+    <ul>
+      {posts.map((post) => (
+        <li key={post.id}>{post.title}</li>
+      ))}
+    </ul>
+  )
+}
+ 
+// This function gets called at build time on server-side.
+// It may be called again, on a serverless function, if
+// revalidation is enabled and a new request comes in
+export async function getStaticProps() {
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+ 
+  return {
+    props: {
+      posts,
+    },
+    // Next.js will attempt to re-generate the page:
+    // - When a request comes in
+    // - At most once every 60 seconds
+    revalidate: 60, // In seconds
+  }
+}
+ 
+// This function gets called at build time on server-side.
+// It may be called again, on a serverless function, if
+// the path has not been generated.
+export async function getStaticPaths() {
+  const res = await fetch('https://.../posts')
+  const posts = await res.json()
+ 
+  // Get the paths we want to pre-render based on posts
+  const paths = posts.map((post) => ({
+    params: { id: post.id },
+  }))
+ 
+  // We'll pre-render only these paths at build time.
+  // { fallback: 'blocking' } will server-render pages
+  // on-demand if the path doesn't exist.
+  return { paths, fallback: 'blocking' }
+}
+ 
+export default Blog
+```
+
+这个示例和 SSG 的示例大同小异，为什么能做到增量渲染呢？核心就在于`revalidate`和`fallback`。
+
+当我们使用 `revalidate`选项时，Next.js 会在 build 时调用一次`getStaticProps`，部署生产后，Next.js 还会在达到`revalidate`设置的时间间隔后再次运行`getStaticProps`，以此更新内容。
+
+`fallback`则是用来决定当用户请求一个在构建时未被预渲染的路径时，Next.js 应当怎么处理。它有三种可选值：`false`、`true` 和 **`'**blocking**'**`。
+
+1. `fallback: false`:
+    - 当用户请求一个在构建时未被预渲染的路径时，将立即返回 404 页面。
+    - 这意味着如果路径不在`getStaticPaths`返回的列表中，用户会看到一个 404 错误。
+2. `fallback: true`:
+    - 当用户请求一个未被预渲染的路径时，Next.js 会立即提供一个“fallback”版本的页面。这通常是一个空页面或一个加载状态。
+    - 然后，Next.js 会在后台异步地运行`getStaticProps`来获取页面的数据，并重新渲染页面。一旦页面准备好，它将替换“fallback”版本。
+    - 这允许页面几乎立即可用，但可能不显示任何实际内容，直到数据被加载并页面被渲染。
+3. `fallback: 'blocking'`:
+    - 当用户请求一个未被预渲染的路径时，Next.js 会等待`getStaticProps`完成并生成该页面，然后再提供给用户。
+    - 这意味着用户会等待，直到页面准备好，但他们会立即看到完整的页面内容，而不是一个空页面或加载状态。
+
+### 优缺点
+
+**优点：**
+
+1. 结合了 SSR 的实时性和 SSG 的速度优势。
+2. 适合内容经常变动但不需要实时更新的应用。
+3. 减轻了服务器的压力，同时提供了实时内容。
+
+**缺点：**
+
+1. 相比于 SSG，初次请求可能需要更长的加载时间。
+
+## 如何选择合适的渲染策略建议
+
+1. **高度交互的应用**：如果你正在开发一个如单页应用（SPA）那样高度交互的应用，**CSR** 可能是最佳选择。一旦页面加载，用户的任何交互都将非常迅速，无需再次从服务器加载内容。
+2. **需要 SEO 优化的应用**：如果你的应用依赖于搜索引擎优化，**SSR** 或 **SSG** 是更好的选择。这两种方法都会提供完整的 HTML，有助于搜索引擎索引。
+3. **内容静态但更新频繁的网站**：例如博客或新闻网站，**ISR** 是一个很好的选择。它允许内容在背景中更新，而用户仍然可以快速访问页面。
+4. **内容基本不变的网站**：对于内容很少或根本不更改的网站，**SSG** 是最佳选择。一次生成，无需再次渲染，提供了最快的加载速度。
+5. **混合内容的应用**：Next.js 允许你在同一个应用中混合使用不同的渲染策略。例如，你可以使用 SSR 渲染首页，使用 SSG 渲染博客部分，而使用 CSR 渲染用户交互部分。
+
+## 结语
+
+CSR、SSR、SSG、ISR 这些看起来让人头疼的概念，实际上都有适合自己的场景，只要分析场景，结合文档使用就不会再迷茫。
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

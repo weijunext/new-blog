@@ -1,0 +1,169 @@
+---
+title: 性能优化——把重排、重绘、合成掰开了、揉碎了学
+description: 这篇文章将深入讲解前端开发中的重排、重绘和合成的概念，同时探讨如何通过优化技巧提升页面性能。从减少重排重绘的次数到合理使用图层合成，你将学到实用的前端性能优化方法和最佳实践。
+slug: reflow-repaint-compositing
+slugId: f30c20a3-f8b0-41bf-8be6-25ebcfebde80
+tags: 性能优化
+date: 2023-08-17
+---
+
+## **引言**
+
+在前端开发中，有重排（reflow）、重绘（repaint）和合成（compositing）这三个在代码中无处不在，却鲜有人提起的概念，其实这是一名前端进阶道路上绕不开的一道题。
+
+这三个概念，仿佛是渲染引擎的交织舞台，影响着页面的构建、外观和性能。它们如同隐藏在幕布背后的舞者，相互合作，决定了用户的视觉和交互体验。在掌握了它们的本质后，我们将能够优化页面、提升性能，创造出更为流畅和令人惊艳的用户界面。
+
+在接下来的内容中，我们将深入探讨重排、重绘和合成的原理，领略它们在前端开发中的不可或缺性，以及一些优化技巧和最佳实践。
+
+## **重排（Reflow）**
+
+### 什么是重排、何时重排
+
+**重排**是指当页面的**布局和几何属性发生变化**时，浏览器需要**重新计算元素的位置和大小**。这个过程涉及到**整个文档树的重新布局**，因此是非常耗费性能的操作。一些可能引起重排的操作包括改变元素的尺寸、位置、内容等。频繁的重排会导致页面的卡顿和响应时间延长。
+
+### 常见导致重排的操作和行为
+
+- 添加/删除可见的DOM元素
+- 修改元素位置属性,如left、top、right等
+- 页面初始加载时，以及响应式布局变化时
+- 改变页面布局，如宽高、内外边距、浮动等
+- 改变字体
+- 滚动页面
+
+那么我们可以怎么确认是否触发重排呢？
+
+先来一个demo
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="box" style="width: 300px; height: 300px; background-color: #bbb"></div>
+  <input type="button" id="btn" value="点击按钮">
+</body>
+
+<script>
+  // 示例1:修改元素宽高
+  const div = document.getElementById('box');
+
+  function resize() {
+    div.style.width = '50%';
+    div.style.height = '10vh';
+  }
+
+  // 点击按钮修改div大小,会触发重排
+  document.getElementById('btn').addEventListener('click', resize);
+</script>
+
+</html>
+```
+
+在浏览器打开html文件，打开chrome devtools 的permance，开始录制，然后点击按钮 - 缩放窗口，再停止录制。会看到这样的界面，可以选择时间范围以更细致分析：
+
+![reflow1.png](/assets/007/reflow1.png)
+
+看到layout就说明浏览器进行重排了，变换时间范围，会发现layout时间不一样，这就是缩放过程中布局不断更新，所以不断触发重排。
+
+### 优化技巧
+
+- 避免频繁访问布局属性，尽量一次性获取或修改
+    
+    ```jsx
+    // 如上面的demo可以修改resize为
+    function resize() {
+    	div.style.cssText = 'width: 50%; height: 10vh; background-color: #bbb';
+    }
+    ```
+    
+- 使用 CSS3 动画替代 JavaScript 动画，因为前者通常能利用合成来避免重排
+- 将频繁变动的元素设置为绝对定位或固定定位，脱离文档流，以减少对其他元素布局的影响
+- 使用虚拟DOM,减少实际DOM操作
+
+## **重绘（Repaint）**
+
+### 什么是重绘，何时重绘
+
+**重绘**是指当元素的**外观属性（如颜色、背景等）发生变化**时，浏览器会**重新绘制这些元素**。与重排不同，重绘不会改变元素的布局，**只是改变元素的外观**。尽管重绘的代价相对较小，但仍然需要消耗一定的性能。
+
+### 常见导致重排的操作和行为
+
+- 改变颜色、背景、阴影等视觉样式
+- 设置文本内容或字体样式
+- 单独使用transform、opacity来实现动画效果
+
+你可以修改上面的demo来验证，permance里的paint就是重绘。
+
+![repaint1.png](/assets/007/repaint1.png)
+
+### 优化技巧
+
+- 合并多次样式改变，避免重复重绘
+- 使用CSS3的transform和opacity属性，它们能够在不引起重排的情况下改变元素外观
+- 对动画使用will-change提高合成层创建效率
+
+## **合成（Compositing）**
+
+### 什么是合成，何时合成
+
+**合成**是**将多个图层合成为最终的屏幕显示**。现代浏览器利用硬件加速来进行合成，即**利用计算机的GPU**来加速图层的合成过程。合成的优化可以显著提高页面的渲染性能，并且**减少对CPU的压力**。
+
+### **启用合成层的一些方法**
+
+- 使用硬件加速，将部分图层委托给 GPU 处理，加快图层合成速度
+- 利用图层的概念，将独立于布局的元素分层，使得只有特定图层的变化会触发合成，而不会引发重排和重绘
+- 使用 `will-change` 属性明确声明哪些属性将会发生变化，帮助浏览器进行优化
+    
+    ```css
+    .box {
+      will-change: transform;
+    }
+    
+    .box:hover {
+      transform: scale(1.1); 
+    }
+    ```
+    
+- 对3D transform进行动画
+    
+    ```css
+    .box {
+      animation: rotate 1s linear infinite;
+    }
+    
+    @keyframes rotate {
+      100% { 
+        transform: rotateY(360deg); 
+      }
+    }
+    ```
+    
+- 对元素设置opacity小于1
+    
+    ```css
+    .box {
+      opacity: 0.5;
+    }
+    ```
+    
+- 对元素设置video、canvas、WebGL等标签
+
+总结来说，能用CSS的地方就别用JS，这是用合成层优化重排、重绘的根本。
+
+## 总结
+
+在前端开发的世界中，理解重排、重绘和合成的概念是我们优化性能的重要一环。这些平时工作中极少提起的名词，实际上是良好的用户体验的关键所在。
+
+前端er应该不再把性能优化视为一项任务，而要看作是一种创造力的表达。就像艺术家将每一笔划痕都视为构建完美画作的一部分，我们也能通过优化网页的每一帧，创造出更极致的前端体验。
+
+## **参考资料**
+
+- [哪些CSS属性会影响重排、重绘](https://csstriggers.com/)
+- [浏览器重绘与重排](https://developer.mozilla.org/zh-CN/docs/Web/Performance/How_browsers_work#%E9%87%8D%E7%BB%98%E4%B8%8E%E9%87%8D%E6%8E%92)

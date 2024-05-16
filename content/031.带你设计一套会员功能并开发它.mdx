@@ -1,0 +1,410 @@
+---
+title: 带你设计一套会员功能并开发它
+description: 相信每一位程序员都梦想着有一天开发出自己的产品，而且有人愿意为自己的产品买单。本文分享了会员功能的设计和开发的思考，希望可以给正在开发会员功能的开发者提供一点帮助。
+slug: build-membership-feature
+slugId: ad3f4bff-0b78-4c04-bf12-98bffdc14611
+tags: NextJS,NextJS实战
+date: 2023-10-05
+---
+
+## 引言
+
+相信每一位程序员都梦想着有一天开发出自己的产品，而且有人愿意为自己的产品买单。用户买单的方式可能是一次性购买产品的使用权、购买产品会员享受高级功能等等。本文和下一篇文章将进行会员与支付功能的设计开发分享，希望可以给正在开发会员功能的开发者提供一点帮助。
+
+本文我们先把支付的逻辑放一边，只关注会员功能的设计和开发，抽丝剥茧，为接入支付功能打好基础。
+
+「会员功能系列文章」第二篇：《👉[基于Lemon Squeezy开发你的全球可用的会员功能](/article/integrate-lemonsqueezy-api)》
+
+## 设计思考与开发
+
+当我们开始思考设计一个会员功能的时候，它包含了用户类别的设计、数据存储的设计、后端API的设计、前端界面的设计和预防风险的设计。现在我们就一个个理清思路。
+
+### 用户类别设计
+
+我正在开发一个工具类网站，为了给用户提供更多的灵活性并满足不同的使用需求，我决定将用户分为三类：
+
+- 免费用户：每天可以使用10次，用户角色值设为1
+- 月度会员：每天可以使用500次，用户角色值设为2
+- 加油包用户：每次购买可增加100次可用次数，免费用户和月度会员均可成为加油包用户，所以不用单独设置角色值
+
+付费功能核心逻辑是这样：
+
+- 免费用户可以升级为月度会员，一个会员周期是31天
+- 会员可以提前续费，会员有效期会顺延
+- 当用户的使用次数达到限制，可通过加油包获取更多次数，每次购买加油包获得100次使用次数，有效期为7天，如果多次购买，加油包有效期会顺延
+
+我认为这种设计可以兼顾轻度用户、重度用户和临时重度用户，再通过定价策略，就可以激励潜在的重度需求的用户购买月度会员。当然这套设计未经验证，如果效果不好，到时候再调整就好了。
+
+### 数据存储设计
+
+因为会员和加油包有过期时间，如果把相关数据记录在像 MySQL 或者 Postgres 里，我还需要定时去更改用户角色，无形中给自己增加了开发量。为了让开发流程更丝滑，我选择了 Redis 作为数据存储的解决方案，我只需要给 Redis key 设置过期时间，key 过期就查不到了，等同于会员或加油包到期。
+
+Redis 我仍然沿用 Upstash 的免费 Redis 资源，关于 Upstash 的介绍，可以看我的这篇文章：👉《[用 Upstash 作为你的 Redis 服务器](/article/using-upstash-as-redis-server)》。
+
+本文默认你对 Redis 的基础类型和命令有一定的认识，所以不会对 Redis 的用法进行介绍。
+
+对于数据存储的设计，我首先需要设计几个关键的 Redis key：
+
+- 用户每日已使用次数：`userId:<userID>::date:<date>::user_date_uses`
+    - 用户每日第一次使用功能时，通过自增命令，Redis 会自动创建一个与日期相关的 key；
+    - 有了每日使用的次数，我就可以通过用户角色对应的日上限（普通用户10次，会员500次）算出该用户每日剩余次数
+    - 为什么我记录已使用次数，而不是记录剩余次数？这是因为，如果记录剩余次数，当剩余0次时会查询到0，而当天第一次使用前，查询剩余次数会因为 key 不存在而查到 `null`，在区分0和 `null` 的时候，可能会出现混淆，所以我认为记录已使用次数是更好的做法。
+- 会员状态：`userId:<userID>::membership`
+    - 用户升级会员后，服务端会在 Redis 里创建这个用户的会员状态 key，value 设置为2，表示用户是有效的会员。
+    - key 的过期时间是会员的剩余有效期（秒为单位）。
+- 加油包余额：`userId:<userID>:boost_pack_uses`
+    - 用户购买加油包后，会创建一个初始 value 为100的加油包余额 key
+    - key 的过期时间是加油包的有效期（秒为单位）
+    - 当用户日限额用完后，开始扣加油包的余额，用 `desc` 进行自减
+
+### 服务端设计与开发
+
+在真实的生产环境中，我们一般是通过查询订单状态，然后内部调用升级、续费、获得加油包的方法，但本文一方面是剥离了支付功能，另一方面出于方便测试和演示，所有相关功能全部以暴露接口、接口再调用内部方法的方式来展开说明。
+
+#### 参数类型和常量定义
+
+首先把用户角色类型和重要的常量定义清楚。
+
+用户角色类型定义：
+
+```tsx
+// @/types/user.ts
+
+// ……
+
+export interface UserSub {
+  sub: string;
+}
+
+export type Role = 1 | 2; // 1 普通用户; 2 会员
+
+export interface DateRemaining {
+  role: number; // 用户角色
+  userTodayRemaining: number; // 今天剩余次数
+  boostPackRemaining: number; // 加油包剩余次数
+  userDateRemaining: number; // 上面二者总的剩余次数
+}
+```
+
+为了更方便地维护 Redis 相关的 key 和其它设置，我们还可以创建一个文件用来记录这些信息，如：
+
+```tsx
+// @/lib/membership/constants.ts
+
+import { Role, UserSub } from "@/types/user";
+export const ROLES: { [key in Role]: string } = {
+  1: 'Basic',
+  2: 'MemberShip',
+}
+
+export const ROLES_LIMIT: { [key in Role]: number } = {
+  1: process.env.COMMON_USER_DAILY_LIMIT_STR && Number(process.env.COMMON_USER_DAILY_LIMIT_STR) || 10,
+  2: process.env.MEMBERSHIP_DAILY_LIMIT_STR && Number(process.env.MEMBERSHIP_DAILY_LIMIT_STR) || 500,
+}
+
+export const DATE_USAGE_KEY_EXPIRE = 3600 * 24 * 10 // 10天，用户日用量保存时长
+export const MEMBERSHIP_EXPIRE = 3600 * 24 * 31 // 31天，会员一个月的时间
+export const MEMBERSHIP_ROLE_VALUE = 2 // 月度会员的值
+export const BOOST_PACK_EXPIRE = 3600 * 24 * 7 // 7天，购买加油包的使用期限
+export const BOOST_PACK_USES = 100 // 每次购买加油包获得的次数
+
+// key统一管理，可以降低维护难度
+export const getUserDateUsageKey = ({ sub }: UserSub) => {
+  const currentDate = new Date().toLocaleDateString();
+  return `userId:${sub}::date:${currentDate}::user_date_uses`
+}
+export const getMembershipStatusKey = ({ sub }: UserSub) => {
+  return `userId:${sub}::membership`
+}
+export const getBoostPackKey = ({ sub }: UserSub) => {
+  return `userId:${sub}::boost_pack_uses`
+}
+```
+
+#### API设计开发
+
+1、升级/续费会员：`/api/mambership/fake/upgrade`
+
+```tsx
+// @/app/api/membership/fake/upgrade/route.ts
+import { upgrade } from "@/lib/membership/upgrade";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { sub } = await req.json();
+    const res = await upgrade({ sub }) // upgrade是一个内部方法，后续接入支付可直接调用
+    return NextResponse.json(res)
+  } catch (e) {
+    return NextResponse.json({ error: "failed to upgrade" }, { status: 500 });
+  }
+}
+```
+
+`upgrade`功能设计：
+
+- 判断当前用户角色
+    - 如果是普通用户，则升级会员，设置`userId:<userID>::membership`的value为2，过期时间31天
+    - 如果是会员用户，则延长会员期，更新`userId:<userID>::membership`的过期时间。
+- 每次购买都清空当日已使用次数，这是出于用户体验的考虑，可以不要
+
+代码实现如下：
+
+```tsx
+// @/lib/membership/upgrade.ts
+export const upgrade = async ({ sub }: UserSub) => {
+  // 检查用户角色
+  const userRoleKey = await getMembershipStatusKey({ sub })
+  const userRole: Role = await redis.get(userRoleKey) || 1
+
+  // 普通用户，直接设置role和过期时间
+  if (userRole === 1) {
+    const res = await redis.set(userRoleKey, MEMBERSHIP_ROLE_VALUE, { ex: MEMBERSHIP_EXPIRE })
+    if (res === 'OK') {
+      // 清空今天已用次数
+      clearTodayUsage({ sub })
+      return { sub, oldRole: ROLES[userRole], newRole: ROLES[MEMBERSHIP_ROLE_VALUE], expire: MEMBERSHIP_EXPIRE, upgrade: 'success' }
+    }
+    return { sub, oldRole: ROLES[userRole], upgrade: 'fail' }
+  }
+
+  // 会员用户，查询过期时间，计算新的过期时间，更新过期时间
+  const TTL = await redis.ttl(userRoleKey)
+  const newTTL = TTL + MEMBERSHIP_EXPIRE
+  const res = await redis.expire(userRoleKey, newTTL)
+  if (res === 1) {
+    // redis操作成功，清空今天已用次数
+    clearTodayUsage({ sub })
+    return { sub, oldRole: ROLES[MEMBERSHIP_ROLE_VALUE], newRole: ROLES[MEMBERSHIP_ROLE_VALUE], expire: newTTL, upgrade: 'success' }
+  }
+  return { sub, oldRole: ROLES[MEMBERSHIP_ROLE_VALUE], newRole: ROLES[MEMBERSHIP_ROLE_VALUE], expire: TTL, upgrade: 'fail' }
+}
+```
+
+这样升级/续费的接口就完成了，可以通过postman进行逻辑测试。完整源码和线上演示地址放在文末。
+
+2、购买加油包：`/api/mambership/fake/bugBoostPack`
+
+```tsx
+// @/app/api/membership/fake/bugBoostPack/route.ts
+import { boostPack } from "@/lib/membership/boostPack";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { sub } = await req.json();
+    const res = await boostPack({ sub })
+    return NextResponse.json(res)
+  } catch (e) {
+    return NextResponse.json({ error: "failed to purchase boost pack" }, { status: 500 });
+  }
+}
+```
+
+`boostPack`功能设计：
+
+- 判断当前加油包剩余次数
+    - 如果剩余0次，则设置`userId:<userID>:boost_pack_uses`的值为100，过期时间7天。
+    - 如果剩余大于0次，则增加100次剩余次数，增加7天过期时间
+
+代码实现如下：
+
+```tsx
+// @/lib/membership/boostPack.ts
+export const boostPack = async ({ sub }: UserSub) => {
+  const userBoostPackKey = await getBoostPackKey({ sub })
+  const userBoostPack = await redis.get(userBoostPackKey) || 0
+
+	// 加油包余额不存在，当作新购用户
+  if (userBoostPack === 0) {
+    const res = await redis.set(userBoostPackKey, BOOST_PACK_USES, { ex: BOOST_PACK_EXPIRE })
+    if (res === 'OK') {
+      return { sub, boostPackUses: BOOST_PACK_USES, expire: BOOST_PACK_EXPIRE, boostPack: 'success' }
+    }
+    return { sub, boostPackUses: 0, expire: 0, boostPack: 'fail' }
+  }
+
+  // 已是加油包用户，查询过期时间，计算新的过期时间，更新过期时间
+  const oldBalance: number = await redis.get(userBoostPackKey) || 0
+  const TTL = await redis.ttl(userBoostPackKey)
+  const newTTL = TTL + BOOST_PACK_EXPIRE
+  const newBalance = oldBalance + BOOST_PACK_USES
+  const res = await redis.setex(userBoostPackKey, newTTL, newBalance)
+  return res === 'OK' ?
+    { sub, oldBalance, newBalance, expire: newTTL, boostPack: 'success' } :
+    { sub, oldBalance, newBalance: oldBalance, expire: TTL, boostPack: 'fail' }
+}
+```
+
+这样购买加油包的接口也完成了，可以通过postman进行逻辑测试。完整源码和线上演示地址放在文末。
+
+3、检查使用次数和会员状态：`/api/mambership/fake/checkStatus`
+
+```tsx
+// @/app/api/membership/fake/checkStatus/route.ts
+import { checkStatus } from "@/lib/membership/checkStatus";
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(req: NextRequest) {
+  try {
+    const { sub } = await req.json();
+    const res = await checkStatus({ sub })
+    return NextResponse.json(res)
+  } catch (e) {
+    return NextResponse.json({ error: "failed to upgrade" }, { status: 500 });
+  }
+}
+```
+
+`checkStatus`功能设计：
+
+- 获取`userId:<userID>::date:<date>::user_date_uses`、`userId:<userID>:boost_pack_uses`和`userId:<userID>::membership`的值，返回当前可用次数、加油包余额、加油包过期时间及会员过期时间。
+
+核心代码实现如下：
+
+```tsx
+// @/lib/membership/checkStatus.ts
+export const checkStatus = async ({ sub }: UserSub) => {
+  const userDateRemaining: DateRemaining = await getUserDateRemaining({ sub }) // 获取用户角色、当日剩余次数、加油包剩余次数
+  
+	// 如果是会员，计算会员到期时间
+  let membershipExpire = 0
+  if (userDateRemaining.role === MEMBERSHIP_ROLE_VALUE) {
+    const userRoleKey = await getMembershipStatusKey({ sub })
+    membershipExpire = await redis.ttl(userRoleKey)
+  }
+  // 如果加油包次数大于0，计算加油包到期时间
+  let boostPackExpire = 0
+  if (userDateRemaining.boostPackRemaining > 0) {
+    const boostPackKey = await getBoostPackKey({ sub })
+    boostPackExpire = await redis.ttl(boostPackKey)
+  }
+
+  return {
+    role: userDateRemaining.role,
+    todayRemaining: userDateRemaining.userTodayRemaining,
+    membershipExpire: membershipExpire,
+    boostPackRemaining: userDateRemaining.boostPackRemaining,
+    boostPackExpire: boostPackExpire,
+  }
+}
+```
+
+这样购买获取会员状态和使用次数的接口也完成了，可以通过postman进行逻辑测试。完整源码和线上演示地址放在文末。
+
+4、使用功能：`/api/fake/useFunction`
+
+核心代码设计如下：
+
+- 服务端调用工具方法前，先查询剩余次数，如果默认次数+加油包次数>0，则可以调用，否则返回错误提示
+
+```tsx
+// @/app/api/fake/useFunction/route.ts
+import { NextRequest, NextResponse } from "next/server";
+
+export async function POST(req: NextRequest) {
+  try {
+    // 忽略身份校验的代码
+		// ……
+
+		// 服务端调用工具方法前，先查询剩余次数
+    const remainingInfo: DateRemaining = await getUserDateRemaining({ sub })
+    if (remainingInfo.userDateRemaining <= 0) {
+      const errorText = '0 uses remaining today.'
+      return NextResponse.json({ error: errorText }, { status: 401 });
+    }
+
+		// 忽略使用功能的逻辑
+    // ……
+
+		// 服务端调用工具方法后，修改 redis 统计的使用次数
+    incrAfterUse({ sub, remainingInfo }) // 异步执行，减少服务端阻塞
+
+		// 返回
+    const res = await checkStatus({ sub }) // 测试使用，实际返回应使用功能的真实返回
+    return NextResponse.json(res)
+  } catch (e) {
+    return NextResponse.json({ error: "failed to upgrade" }, { status: 500 });
+  }
+}
+```
+
+- 服务端调用工具方法后，修改 redis 统计的使用次数，这里要先判断日限额剩余次数，然后再判断加油包剩余次数
+    - 如果【默认使用次数 - 日使用次数】> 0，则自增一个日使用次数；
+    - 如果【默认使用次数 - 日使用次数】\<= 0，则判断加油包次数`userId:<userID>:boost_pack_uses`的值
+        - 如果大于0，则自减1
+
+```tsx
+export const incrAfterUse = async ({ sub, remainingInfo }: IncrAfterChat) => {
+  // 如果【默认使用次数 - 日使用次数】> 0，则自增一个日使用次数；
+  if (remainingInfo.userTodayRemaining > 0) {
+    await incrUserDate({ sub })
+    return
+  }
+  // 如果没有默认次数，有加油包，判断加油包次数
+  if (remainingInfo.boostPackRemaining > 0) {
+    const boostPackKey = await getBoostPackKey({ sub })
+    await redis.decr(boostPackKey)
+    return
+  }
+  // 如果没有默认次数，也没有加油包，则不处理，只需要记录日志
+  console.log('0 uses remaining today.');
+}
+
+export const incrUserDate = async ({ sub }: UserSub) => {
+  const keyDate = await getUserDateUsageKey({ sub });
+  await redis.incr(keyDate);
+}
+```
+
+完整源码和线上演示地址放在文末。
+
+### 前端设计
+
+- 用户界面：
+    - 显示当前用户类型、剩余使用次数、加油包余额（包括到期日期）和会员到期日期（可以通过检查Redis键的TTL得到）。
+    - 提供购买额外次数的选项。
+    - 提供续费选项。
+- 提示和警告：
+    - 当用户达到使用限制时，提示购买加油包或者升级会员
+        - 普通用户：Become a member to enjoy 500 uses every day.
+        - 会员用户：Purchase a Boost Pack to get more uses right now.
+    - 当加油包即将到期或会员即将到期时，显示相应的提醒。
+
+演示截图如下：
+
+![1.png](/assets/031/1.png)
+
+## 风险应对策略
+
+涉及到金钱的功能一定要做好风险应对策略，否则出了生产事故就会对品牌产生很大影响。本文核心逻辑都是在操作 redis，所以主要考虑 redis 的连接和操作失败的问题。因为这是一块很大的专题，所以不在本文进行详细叙述，仅抛砖引玉提供一些应对策略：
+
+- 重试策略：由于网络波动或短暂的服务中断，Redis 操作可能会偶尔失败。这种情况下，实施一个自动重试策略是有益的。
+- 错误日志：确保记录所有 Redis 相关的错误，这样你可以追踪、分析并修复它们。
+- 用户反馈：如果 Redis 操作失败，并且你已尝试了所有自动重试，那么应该给用户一个明确的错误消息。这样，用户会知道发生了什么，并且可以稍后重试。
+- 后备策略：考虑创建一个后端队列或延迟任务系统。当 Redis 操作失败并且重试不起作用时，你可以将操作的详细信息放入队列中，并在后台持续尝试，直到成功。
+- 监控：使用 Upstash 提供的监控工具或其他第三方服务，如 Datadog 或 Sentry 来实时监控 Redis 的性能和错误率。这样，如果出现问题，你可以迅速得知并采取行动。
+
+## 结语
+
+把本文的代码块去掉，就是一份会员功能设计和代码设计的文档，希望本文对会员功能的设计思考和代码的实现都能对你有所启发。
+
+「会员功能系列文章」第二篇：《👉[基于Lemon Squeezy开发你的全球可用的会员功能](/article/integrate-lemonsqueezy-api)》
+
+## 源码与演示
+
+源码：👉[membership](https://github.com/weijunext/nextjs-learn-demos/tree/membership)
+
+在线演示：👉[模拟会员功能](https://nextjs.weijunext.com/fake-membership)
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

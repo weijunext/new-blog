@@ -1,13 +1,14 @@
 {
-  "name": "weekly-boilerplate",
-  "version": "0.1.0",
+  "name": "weijunext.com",
+  "version": "2.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "postbuild": "next-sitemap",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "pages:build": "npx @cloudflare/next-on-pages"
   },
   "dependencies": {
     "@giscus/react": "^3.0.0",
@@ -36,9 +37,12 @@
     "react-dom": "^18",
     "react-hot-toast": "^2.4.1",
     "react-icons": "^5.0.1",
-    "remark-gfm": "^4.0.0",
+    "rehype-autolink-headings": "^7.1.0",
+    "rehype-slug": "^6.0.0",
+    "remark-gfm": "3.0.1",
     "tailwind-merge": "^2.2.1",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zustand": "^4.5.2"
   },
   "devDependencies": {
     "@types/node": "^20",

@@ -1,0 +1,99 @@
+---
+title: React Server Components引发的分歧与机遇
+description: 本文分享了近期 React Server Components（RSC）引发的技术分歧，讨论了其为前端开发带来的新机遇。
+slug: react-server-components-discussion
+tags: React
+date: 2024-02-02
+---
+
+## 介绍 React Server Components
+
+在以前，当用户访问一个 React 应用时，服务端会返回一个空的 HMTL 文件，里面包含一个或多个 JavaScript 文件，浏览器解析 HTML，然后下载 JavaScript 文件，并在客户端呈现网页。
+
+<Aside>
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起学习交流前端和Node技术
+
+</Aside>
+
+React Server Components（RSC）的出现拓展了 React 的范围。顾名思义，React Server Components 就是 React 的服务端组件，它们只在服务端运行，可以调用服务端的方法、访问数据库等。RSC 每次预渲染后把 HTML 发送到客户端，由客户端进行水合（hydrate）并正式渲染。这种做法的好处是，一部分原本要打包在客户端 JavaScript 文件里的代码，现在可以放在服务端运行了，从而减轻客户端的负担，提升应用的整体性能和响应速度。
+
+「充分利用服务器资源」是发布 RSC 的最大动机，换句话说就是：一切不需要交互的内容都应当放到服务端。React 官方举了一个非常典型的例子——渲染 markdown 内容，
+
+```jsx
+// 客户端组件渲染
+
+import marked from 'marked'; // 35.9K (11.2K gzipped)
+import sanitizeHtml from 'sanitize-html'; // 206K (63.3K gzipped)
+
+function NoteWithMarkdown({text}) {
+  const html = sanitizeHtml(marked(text));
+  return (/* 渲染 */);
+}
+```
+
+这个例子中，如果用客户端组件渲染，客户端至少要下载 200 多k的文件才能渲染出内容，但这里的 markdown 内容其实不需要交互，也不会因为用户的操作产生更新信息的需求，非常符合使用 RSC 的理念。如果使用 RSC，
+
+```jsx
+// 服务器组件渲染
+
+import marked from 'marked'; // 零打包大小
+import sanitizeHtml from 'sanitize-html'; // 零打包大小
+
+function NoteWithMarkdown({text}) {
+  // 与之前相同
+}
+```
+
+依赖包放在服务端，服务端只返回用户需要看到的内容，客户端包一下子就小了 200 多k。
+
+直到这里，社区主流观点都是积极的，直到 Next.js 基于 RSC 的特性野蛮狂奔，分歧出现了。
+
+## 社区分歧
+
+出现分歧的最根本原因是 React 引入了服务端的概念，服务端组件和客户端组件有着明显差异：
+
+- 服务器组件不能使用像 `useState` 和 `useEffect` 这样的 React hook；客户端则可以；
+- 服务器组件无权访问浏览器 API；客户端有完整的浏览器 API 权限；
+- 服务端有权限直接访问服务端程序和 API；而客户端组件只能通过请求访问部分程序。
+
+随着 Next.js v13 和 v14 版本发布，React 仍然是金丝雀版本的 RSC 被 Next.js 搬到生产环境，`'use client'` 和 `'use server'` 被越来越多人讨论，开发者们说现在有「两个 React」，社区开始争吵 React 这些年在进步还是在退步？
+
+![1.jpeg](/assets/043/1.jpeg)
+
+### 社区里反对的声音
+
+首先是知名软件工程师 **Cassidy Williams**，她指出 React 这两年的发展问题：
+
+- 「两个 React」带来的新概念对大多数人来说并不是清晰易懂的知识，这种分裂可能导致了额外的混淆和学习障碍。
+- 自 2022 年 6 月以来 React 不仅没有新的发布，还鼓励开发者使用上层框架，而这些上层框架不等 RSC 升级成稳定版，就发布了基于 RSC 的特性（就差点名 Next.js 了）。
+- React 近些年有成员加入其他上层框架的团队，不仅疏于更新版本，还疏于更新文档。
+
+React Query 的开发者 **Tanner Linsley** 也对 React 的发展表达了担忧和不满：
+
+- 自从 React 引入 hooks 和 suspense API 以来，React 过分专注于少数几个概念，这些新概念虽然在技术上推动了单线程 UI API 的极限和边界，但对他日常为用户提供价值的工作影响甚微。
+- 从 RSC 发布看出来，React 团队对客户端性能已经没有那么强烈的追求了。
+
+地图技术和可视化技术专家 **Tom MacWright** 对 React 生态系统的分裂进行了批评：
+
+- 当前 React 更新缓慢，反而是两个上层框架Remix（由 Shopify 资助）和 Next.js（由 Vercel 资助）在激烈竞争。
+- React 团队和 Next.js 团队交集过多，让 Vercel 获得了领先优势，那些不属于 Vercel 和 Facebook 生态系统的其他框架，如 Remix，它们会受到 React 中已修复但未发布错误的影响。
+
+### 社区里积极的态度
+
+面对社区里越来越多的反对声音，React 主要贡献者 **Dan Abramov** 也多次发表里自己看法，他对技术的变革持开放态度：
+
+- Next.js 的 App Router 有着雄心壮志，但是现在还是发展初期，未来会迭代得更优秀。
+- 客户端组件的工作是 UI = f(state)，服务端组件的工作是 UI = f(data)，React 希望组合二者的优势，实现 UI = f(data, state)，他号召社区共同推动实现这一目标。
+- 对于 Next.js 把 RSC 发布到生产版本，Dan 认为“生产就绪”是一个主观的判断，虽然 RSC 还是金丝雀版本，但是 Facebook 也已经大量使用了。他认为在实践中验证才能更快完善技术，最终达到成熟和稳定。
+- 新技术的发展是一个渐进的过程，涉及到不断地测试、反馈和迭代，社区的力量非常重要。
+
+总的来说，Dan 是希望大家放下偏见，共同在实践中摸索出 React 下一阶段的变革。
+
+## 我的观点
+
+在 RSC 的讨论中，我比较认同 Dan 提出的开放和包容性的观点。我认为，面对技术的发展，要抛弃个人偏见，可以实践验证，也可以持续观察它们的发展。只有心态上拥抱变革，开发者才能在变革中找到机遇。
+
+RSC 在提升现代 Web 应用开发绝对是有积极意义的，最显而易见的优势是它可以提高大型应用的性能、减少客户端负载、优化数据获取流程等，通过 RSC 完成这些工作会比以往的 SSR 方案要更加方便。
+
+随着 Node v20 的发布和 RSC 的应用，前端和服务端的距离进一步缩小，我们有机会见证前端工作“后端化”——前端工程师会处理更多传统上属于后端的工作，如数据查询优化、服务器资源管理等。这实际上为前端工程师打开了一扇门，让我们有机会更全面地掌握整个 web 应用的开发流程，也就是我们常说的“全栈开发”。这样的转变势必会提高前端的职业天花板和扩大前端工作的广度。
+

@@ -1,0 +1,673 @@
+---
+title: Next.js+MDX手撸一个开源周刊模板
+description: Next.js + MDX实现一个技术周刊模板/博客模板，你也可以运营自己的「阮一峰周刊」
+slug: ship-weekly-newsletter-fast
+tags: NextJS,NextJS实战
+date: 2024-05-11
+---
+
+曾经我在播客平台听海明威的《老人与海》，注意到一个有趣的数据——从第一条音频开始，每一条的播放量都呈现递减趋势，最后一条的播放量只有第一条的10%。
+
+时间倒转回2018年的4月，阮一峰发布了他的第一篇技术周刊。时至今日，这个名为「科技爱好者周刊」的栏目已经运营了七年之久，每周都有数十条投稿，是技术周刊领域硕果仅存的项目，开发者都以自己的项目能被阮一峰收录为荣耀。
+
+我跟一位不懂技术的朋友分享了我的看法：阮一峰的「科技爱好者周刊」也是一种产品形态，你虽然不懂技术，但是检索信息和筛选信息都有一手，你就适合做这样的项目。说完还不忘夸下海口：如果你有长期运营的心理准备，我帮你搭网站，教你写markdown。
+
+他倒是回答得一点不见外：
+
+![01.chat.jpg](/assets/050/01.chat.jpg)
+
+我想了想，得给他上点难度——网站开发完就开源出去，多吸引一些人来卷他，所以就有了这篇文章以及这个开源项目：
+
+开源地址：https://github.com/weijunext/weekly-boilerplate
+
+演示地址：https://weekly.weijunext.com/
+
+![02.screen-shot.png](/assets/050/02.screen-shot.png)
+
+**本项目使用的技术栈**：
+
+- Next.js
+- MDX
+- Tailwind CSS
+- UI库：NextUI、Shadccn/ui
+
+**读完本文你将学到**：
+
+- 周刊网站、博客网站的设计思路
+- Next.js 中 MDX 渲染内容
+- Next.js 动态路由静态生成
+- 引入免费评论插件
+- 找到好看的字体
+
+本文为避免篇幅过长，代码已忽略掉一些不重要的细节，如果要学习完整的代码，请到开源仓库中查看。
+
+## 设计思路
+
+在构想周刊网站的设计时，我设定了两个目标：简洁性与功能性。
+
+其次考虑到性能与 SEO 优化，我选择了 Next.js + MDX的技术栈，Next.js 的静态生成能力与易于集成 MDX 的特性，可以让我把周刊网站构建成全静态的网站。
+
+接下来考虑界面的设计，网站只需要两个页面：首页和详情页。界面设计要遵循简洁明了的原则，这样访客能够专注于重要的信息，不会被花里胡哨的东西分散注意力。基于这样的理念，最终确定这样的设计方案：
+
+**首页**
+
+- 居中展示历史发布的列表
+- 右侧是一个根据月份索引的时间线
+
+**详情页**
+
+- 左侧是历史发布的列表，用户可以方便切换每一期的周刊
+- 居中展示本期周刊详情
+- 右侧是周刊小标题的索引，用户可以方便地查看自己感兴趣的信息
+- 底部提供评论和点赞功能，让运营者能够收到用户的反馈
+
+至于 UI，身为不懂设计的前端工程师，只能现学现卖了，在观摩超过30个博客类网站后，我琢磨出了这个周刊站的 UI，谢天谢地，我很满意。
+
+## 开发实现
+
+~~鲁迅~~我曾经说过：重复的劳动是对程序员的亵渎。
+
+所以这个项目我仍然沿用了自己发布的开源项目——**clean-nextjs-starter** 进行初始化，用法如下：
+
+打开👉[clean-nextjs-starter default分支](https://github.com/weijunext/clean-nextjs-starter/tree/default)，通过 **use this template** 创建项目。再根据周刊网站的设计思路，设计一下路由，最终文件夹结构大致如下：
+
+```tsx
+├─ app                # 应用入口
+│  ├─ weekly
+│  │  └─ [slug]
+│  │  │  └─ page.tsx  # 周刊详情页
+│  ├─ layout.tsx
+│  └─ page.tsx        # 周刊首页
+├─ components         # 组件
+│  ├─ ……
+├─ config             # 网站配置
+│  └─ site.ts
+├─ content            # mdx 文件统一放在这里
+│  ├─ ……
+├─ lib                # 公共工具类
+│  ├─ ……
+├─ public             # 公共静态资源
+│  ├─ ……
+├─ styles             # 样式
+│  ├─ ……
+│  ……
+```
+
+准备就绪，正式开始开发。
+
+### 引入 MDX
+
+Markdown 大家都很熟悉，它是一种轻量级标记语言，我们可以通过 markdown 纯文本格式编写文档，而 MDX 是 Markdown 的一个超集，它允许我们在 Markdown 中无缝地使用 JSX。
+
+Next.js通过@next/mdx插件很容易集成MDX。步骤如下:
+
+1. 安装依赖
+    
+    ```bash
+    npm install @next/mdx @mdx-js/loader @mdx-js/react
+    ```
+    
+2. 在`next.config.mjs`配置MDX:
+    
+    ```jsx
+    const withMDX = require('@next/mdx')()
+     
+    /** @type {import('next').NextConfig} */
+    const nextConfig = {
+      pageExtensions: ['js', 'jsx', 'mdx', 'ts', 'tsx'],
+    }
+     
+    module.exports = withMDX(nextConfig)
+    ```
+    
+    此配置允许 Next.js 识别 `.mdx` 文件，并将其作为页面或组件处理。
+    
+3. app router 模式下，还需要在根目录创建 `mdx-components.tsx` 文件：
+    
+    ```tsx
+    export function useMDXComponents(components: any) {
+      return {
+        ...components,
+      };
+    }
+    ```
+    
+
+现在到 `app` 文件夹下任意创建一个文件夹，里面写一个 `page.mdx`，打开页面就能渲染出来了。
+
+这是一种简单粗暴的方法，如果直接使用这种方法渲染我们的周刊内容，我们就要每周创建一个路由，实在不方便。
+
+因此，我们要选择另一种更方便的方案：**服务端读取 MDX 文件并解析，使用动态路由渲染**。要用这种方案，就要用到 Remote MDX 模式。
+
+使用 Remote MDX 模式，我们可以把 Markdown 内容存放在服务端文件夹、数据库或者内容管理后台。在本次的项目里，我们创建了 `content` 文件夹，这就是我们的服务端文件夹了，所有周刊内容的 `.mdx` 文件都将放在这个文件夹里。
+
+### 认识 next-mdx-remote
+
+在 Next.js 社区中，next-mdx-remote 是 Remote MDX 的主流方案。
+
+app router 模式下，我们需要使用 next-mdx-remote/rsc 包导出的 `<MDXRemote />` 组件：
+
+```tsx
+// app/weekly/[slug]/page.tsx
+
+export default async function WeeklyDetailsPage({ params }: Props) {
+  const { slug } = params;
+  const { posts }: { posts: WeeklyPost[] } = await getWeeklyPosts();
+  const post = posts.find((post) => post.metadata.slug === slug);
+
+  const { source, metadata } = await getPostDetails(post.fullPath);
+
+  return (
+    <div className="flex flex-row w-full pt-12">
+      <article>
+        <MDXRemote source={source} />
+      </article>
+    </div>
+  );
+}
+```
+
+`<MDXRemote />` 组件接受 `source` 属性，这是必传属性，传入的是 Markdown 内容。
+
+上面这段代码通过动态路由参数判断当前要渲染的周刊文件，然后解析文件内容，再通过 `<MDXRemote />` 组件渲染出来。
+
+为了后面的开发测试，我们先在 `content` 文件夹下创建一批 `.mdx` 文件备用。
+
+`.mdx` 文件里我们采用这样的格式：
+
+```markdown
+---
+title: 开源周刊第1期：用法介绍
+slug: 2024-02-05-001
+date: 2024-02-05
+---
+
+## 标题 2
+
+Markdown允许你轻松地编写网页内容。它的语法简单明了。
+
+### 标题 3
+```
+
+开头使用 `—--` 划分出来的区域，用来配置页面的元数据，自由配置元数据后我们就能实现更多的功能。当然，`@next/mdx` 没有解析元数据的能力，所以为了解析这里的元数据，我们还得使用其他依赖，我选择了 `gray-matter`，用法下文介绍。
+
+<Aside>
+💡 本文截止到这里，已经介绍了三个文档类网站的依赖了：`@next/mdx`、`next-mdx-remote` 和 `gray-matter`，它们是开发文档类网站的基础设施。
+
+</Aside>
+
+### 公共方法开发
+
+本项目中，我们需要多次通过读取 `.mdx` 文件获取以下信息：
+
+1. 周刊列表
+2. 周刊内容
+3. 周刊元数据：标题、日期和 `slug`
+
+我们在 `lib/weekly.ts` 文件里实现这个方法，为了减少重复读取文件，我在一个方法里返回一次性返回了这些信息，如果你有更合理的写法，欢迎提 pr 优化。
+
+```tsx
+// lib/weekly.ts
+
+import dayjs from 'dayjs';
+import fs from 'fs';
+import matter from 'gray-matter';
+import path from 'path';
+
+export async function getWeeklyPosts(): Promise<{ posts: WeeklyPost[]; postsByMonth: PostsByMonth }> {
+  const postsDirectory = path.join(process.cwd(), 'content')
+  let filenames = await fs.promises.readdir(postsDirectory)
+  filenames = filenames.reverse()
+
+  const posts = await Promise.all(
+    filenames.map(async (filename) => {
+	    // 读取文件
+      const fullPath = path.join(postsDirectory, filename)
+      const fileContents = await fs.promises.readFile(fullPath, 'utf8')
+
+			// 解析内容
+      const { data, content } = matter(fileContents)
+	    // 记录月份
+      const month = dayjs(data.date).format('YYYY-MM-DD').slice(0, 7);
+
+      return {
+        id: month,
+        fullPath,
+        metadata: data,
+        content,
+      }
+    })
+  )
+
+  // 按月分组，得到时间线的数据
+  const postsByMonth: PostsByMonth = posts.reduce((acc: PostsByMonth, post: WeeklyPost) => {
+    const month = dayjs(post.metadata.date).format('YYYY-MM-DD').slice(0, 7);
+    if (!acc[month]) {
+      acc[month] = [];
+    }
+    acc[month].push(post);
+    return acc;
+  }, {});
+
+  return {
+    posts,
+    postsByMonth
+  }
+}
+
+```
+
+这个方法里完成了这些工作：
+
+- 通过 `fs` 模块读取 `content` 文件夹下的所有文件，并获取它们的完整本地路径 `fullPath`。
+- 通过 `gray-matter` 解析元数据和正文内容。`gray-matter` 的用法很简单，只要调用 `matter(filePath)` 这样的方法就能完成 `.mdx` 文件解析，其中 `data` 是元数据，`content` 是正文内容。
+- 因为要做一个按月索引的时间线，所以这里还记录了每一篇周刊元数据里的日期，并且计算得到时间线的数据。
+
+### 首页开发
+
+首页获取公共方法返回的信息，分别传给列表组件和时间线组件：
+
+```tsx
+import TimeLine from "@/components/TimeLine";
+import WeeklyList from "@/components/WeeklyList";
+import { PostsByMonth, WeeklyPost, getWeeklyPosts } from "@/lib/weekly";
+
+export default async function Home() {
+  const { posts, postsByMonth } = await getWeeklyPosts();
+
+  return (
+    <div className="flex flex-row w-full pt-12">
+      <div className="hidden md:block md:w-1/5 pl-6"></div>
+      <div className="w-full md:w-3/5 px-6">
+        <WeeklyList posts={posts} />
+      </div>
+      <div className="hidden md:flex justify-end md:w-1/5 pr-6 text-right">
+        <TimeLine postsByMonth={postsByMonth}></TimeLine>
+      </div>
+    </div>
+  );
+}
+
+```
+
+列表用最简单的 `ul`、`li` 排列就可以。这里要加上给 `li` 加上 `id` 作为锚点，这样时间线上面点击月份才能滚动到正确的位置：
+
+```tsx
+import { WeeklyPost } from "@/lib/weekly";
+import dayjs from "dayjs";
+import Link from "next/link";
+
+export default async function WeeklyList({ posts }) {
+  return (
+    <ul className="flex flex-col gap-4">
+      {posts.map((post) => (
+        <li
+          id={post.id}
+          key={post.metadata.slug}
+          className="flex flex-col sm:flex-row gap-4 items-start"
+        >
+          <span className="text-[#8585a8] min-w-28">
+            {dayjs(post.metadata.date).format("YYYY-MM-DD")}
+          </span>
+          {/* 根据元数据的 slug 拼接跳转 url */}
+          <Link
+            href={`/weekly/${post.metadata.slug}`}
+            className="link-default truncate transition-colors duration-500 ease-in-out"
+          >
+            {post.metadata.title}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+```
+
+时间线考虑到长期运营后时间线会很长，所以需要固定区域，并允许滚动。组件定位使用 sticky，这样滚动到屏幕顶部后会固定住，用户体验拉满：
+
+```tsx
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { getWeeklyPosts, PostsByMonth } from "@/lib/weekly";
+import Link from "next/link";
+
+export default async function TimeLine() {
+  const { postsByMonth } = await getWeeklyPosts();
+
+  return (
+    <ScrollArea
+      className="h-72 w-32 rounded-md border border-gray-600 sticky top-0"
+      style={{ position: "sticky" }}
+    >
+      <div className="p-4">
+        <h4 className="mb-4 text-sm font-medium leading-none">
+          <Link href="/">时间线</Link>
+        </h4>
+        {Object.keys(postsByMonth).map((month) => (
+          <div key={month}>
+            <Link href={`#${month}`}>{month}</Link>
+            <Separator className="my-2 bg-gray-600" />
+          </div>
+        ))}
+      </div>
+    </ScrollArea>
+  );
+}
+
+```
+
+这样首页就完工了。
+
+### 详情页开发
+
+![04.weekly-detail.png](/assets/050/04.weekly-detail.png)
+
+详情页左侧依然是调用周刊列表组件，不展开说。
+
+周刊内容使用动态路由渲染 .mdx 内容：
+
+```tsx
+// app/weekly/[slug]/page.tsx
+
+export default async function WeeklyDetailsPage({ params }) {
+  const { slug } = params;
+  const { posts } = await getWeeklyPosts();
+  const post = posts.find((post) => post.metadata.slug === slug);
+
+  const { content, metadata } = post;
+
+  return (
+    <div className="flex flex-row w-full pt-12">
+      <div className="w-full md:w-3/5 px-6">
+	      {/* 记住下面这个id，后面会考 */}
+        <article id={`article`}>
+          <h1>{metadata.title}</h1>
+          <MDXRemote source={content} />
+        </article>
+      </div>
+    </div>
+  );
+}
+```
+
+这里通过 `{params}` 获取动态路由参数 `slug`，用 `slug` 与周刊的元数据里的 `slug` 进行匹配，匹配到了则读取 `content`，传入 `<MDXRemote/>` 渲染。
+
+为了获得更好的性能和更好的 SEO，我们要给周刊内容做成静态页面。这就要用到 Next.js 的静态生成方法了：`generateStaticParams`。
+
+使用 `generateStaticParams`，我们可以预定义 `slug` 值，并为它们生成静态页面：
+
+```tsx
+export async function generateStaticParams() {
+  const { posts }: { posts: WeeklyPost[] } = await getWeeklyPosts();
+
+  return posts.map((post) => ({
+    slug: post.metadata.slug,
+  }));
+}
+```
+
+因为周刊数据都是 `.mdx` 文件，所以直接读取出来，汇总一下 `slug` 就可以了。
+
+这个方法只会在 `npm run build` 的时候执行，执行后就能为指定的 `slug` 页面生成 html 文件，我们在本地尝试一下就知道了：
+
+<Aside>
+`generateStaticParams` 是一个非常灵活的方法——已指定静态生成的页面会在构建时生成静态 html，而对于没有指定的页面，则仍然会进入动态路由原有的逻辑进行动态渲染。
+
+</Aside>
+
+### Markdown 样式优化
+
+因为这个项目集成了 tailwind，所以 html 标签原有的样式都会被覆盖，所以为了让内容样式美观，我们需要自定义 Markdown 常用标签的样式。
+
+创建一个 `MDXComponents.tsx` 组件：
+
+```tsx
+const MDXComponents: MDXComponentsProps = {
+  h1: (props) => (
+    <h1 className="text-4xl font-bold mt-6 mb-4" {...props} />
+  ),
+  h2: (props) => (
+    <h2
+      className="text-3xl font-semibold mt-6 mb-4 border-b-2 border-gray-200 pb-2"
+      {...props}
+    />
+  ),
+  h3: (props) => (
+    <h3 className="text-2xl font-semibold mt-6 mb-4" {...props} />
+  ),
+  h4: (props) => (
+    <h4 className="text-xl font-semibold mt-6 mb-4" {...props} />
+  ),
+  h5: (props) => (
+    <h5 className="text-lg font-semibold mt-6 mb-4" {...props} />
+  ),
+  h6: (props) => (
+    <h6 className="text-base font-semibold mt-6 mb-4" {...props} />
+  ),
+  p: (props) => <p className="mt-0 mb-4" {...props} />,
+  a: (props) => <a className="link-underline" {...props} />,
+  ul: (props) => <ul className="list-disc pl-5 mt-0 mb-4" {...props} />,
+  ol: (props) => <ol className="list-decimal pl-5 mt-0 mb-4" {...props} />,
+  li: (props) => <li className="mb-2" {...props} />,
+  code: (props) => <code className="bg-gray-600 rounded p-1" {...props} />,
+  pre: (props) => (
+    <pre className="bg-gray-600 rounded p-4 overflow-x-auto" {...props} />
+  ),
+  blockquote: (props) => (
+    <blockquote
+      className="pl-4 border-l-4 border-gray-200 my-4 italic text-gray-300"
+      {...props}
+    />
+  ),
+};
+
+export default MDXComponents;
+```
+
+`<MDXRemote/>` 组件可以接受标签的样式配置，用 `components` 属性传入就可以。
+
+```tsx
+<MDXRemote source={content} components={MDXComponents} />
+```
+
+这样实现后的样式就是演示地址里看到的样子了。
+
+### 为 Markdown 添加标题索引
+
+很多文档类网站都会在右侧提供一个标题索引，这个需求我们也不能放过。
+
+但问题随之而来，提取标题简单，要给标题添加锚点就麻烦了，总不能在写 Markdown 的时候每次写标题都手动加个 id 吧。
+
+人工是不可靠的，一定要机器！好在`<MDXRemote/>` 组件可以接受我们自定义的标签，那么就继续在 `MDXComponents.tsx` 动手脚。
+
+改造一下 `h1`-`h6` 标签，分别把标题内容作为id：
+
+```tsx
+import React, { ReactNode } from "react";
+
+interface HeadingProps {
+  level: 1 | 2 | 3 | 4 | 5 | 6;
+  className: string;
+  children: ReactNode;
+}
+
+const Heading: React.FC<HeadingProps> = ({ level, className, children }) => {
+  const HeadingTag = `h${level}` as keyof JSX.IntrinsicElements;
+  const headingId = children?.toString() ?? "";
+
+  return (
+    <HeadingTag id={headingId} className={className}>
+      {children}
+    </HeadingTag>
+  );
+};
+```
+
+这样就把标题标签封装好了，在 `MDXComponents` 里面依次传入 `level` 就可以：
+
+```tsx
+const MDXComponents: MDXComponentsProps = {
+  h1: (props) => (
+    <Heading level={1} className="text-4xl font-bold mt-6 mb-4" {...props} />
+  ),
+  h2: (props) => (
+    <Heading
+      level={2}
+      className="text-3xl font-semibold mt-6 mb-4 border-b-2 border-gray-200 pb-2"
+      {...props}
+    />
+  ),
+
+  // ……
+```
+
+现在详情页每个标题都有自己的 `id` 了。标题索引组件可以生效了：
+
+```tsx
+"use client";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+
+const ArticleIndex = () => {
+  const [headings, setHeadings] = useState<
+    { text: string; id: string; level: string }[]
+  >([]);
+
+  useEffect(() => {
+    const articleElement = document.getElementById("article");
+    if (!articleElement) return;
+
+    const extractedHeadings = Array.from(
+      articleElement.querySelectorAll("h2, h3")
+    ).map((heading) => ({
+      text: heading.textContent || "",
+      id: heading.id || "",
+      level: heading.nodeName, // 'H2' or 'H3'
+    }));
+
+    setHeadings(extractedHeadings);
+  }, []);
+
+  return (
+    <>
+      <ul className="sticky top-0 right-0">
+        {headings.map(({ text, id, level }) => (
+          <li key={id} className={`my-2 ${level === "H3" ? "ml-4" : ""}`}>
+            <Link href={`#${id}`} className="link-hover">
+              {text}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+};
+
+export default ArticleIndex;
+```
+
+因为前面给 `<article/>` 添加 `id` 了，所以可以很方便地遍历出文章里的标签，再从中找出想放进索引的标题元素就可以了，这里我只想索引 `h2` 和 `h3` 标签。
+
+现在点击索引，可以滚动到对应的位置了，用户体验再次拉满！
+
+### 添加评论插件
+
+评论系统可以增加用户粘性，促进互动，内容运营者也会更快收到用户反馈，所以我为周刊模板添加了一个评论插件——giscus。这是一个由 GitHub Discussions 驱动的评论系统，开源免费。
+
+集成 giscus 非常简单:
+
+1. 在 GitHub 上为你的仓库启用 Discussions 功能
+    
+    ![06.github-discussions.png](/assets/050/06.github-discussions.png)
+    
+2. 安装 giscus:
+    
+    ```tsx
+    pnpm i giscus
+    ```
+    
+3. 代码里集成 giscus 组件
+    
+    ```tsx
+    // app/components/Comments.tsx
+    
+    "use client"
+    
+    import Giscus from "@giscus/react";
+    
+    export default function Comments() {
+      return (
+        <>
+        {
+          process.env.NEXT_PUBLIC_REPOID ? 
+            <Giscus
+              id="comments"
+              repo={process.env.NEXT_PUBLIC_REPO}
+              repoId={process.env.NEXT_PUBLIC_REPOID}
+              category={process.env.NEXT_PUBLIC_CATEGORY}
+              categoryId={process.env.NEXT_PUBLIC_CATEGORY_ID}
+              mapping={process.env.NEXT_PUBLIC_MAPPING}
+              term={process.env.NEXT_PUBLIC_TERM}
+              inputPosition={process.env.NEXT_PUBLIC_INPUT_POSITION}
+              theme={process.env.NEXT_PUBLIC_THEME}
+              lang={process.env.NEXT_PUBLIC_LANG}
+              anonymous={process.env.NEXT_PUBLIC_CROSSORIGIN}
+              loading="lazy"
+              strict="0"
+              reactionsEnabled="1"
+              emitMetadata="0"
+            /> : <></>
+        }
+        </>
+      );
+    }
+    ```
+    
+    组件需要填写的信息 giscus 都会在你填完仓库信息后自动生成，你可以在这里开始使用：https://giscus.app/zh-CN
+    
+
+### 选择字体
+
+周刊作为一个靠内容建设的产品，一款好看的字体可以大大提升网站的颜值和阅读体验。在尝试了很多种字体后，我发现落霞孤鹜的文楷字体最符合周刊的调性。
+
+中文字体包都很大，所以找一个稳定的 CDN 就可以了。把 CDN 导入全局样式文件，body 中设置全站字体就可以：
+
+```css
+/* styles/global.css */
+@import url('https://cdn.bootcdn.net/ajax/libs/lxgw-wenkai-webfont/1.6.0/style.min.css');
+
+body {
+  font-family: "LXGW WenKai", sans-serif;
+}
+```
+
+落霞孤鹜字体：https://lxgw.github.io/
+
+## 总结
+
+写这篇文章的时候，我又去看了一下我发布的「独立开发者技术栈」仓库，只有一个 markdown 文件的仓库，发布24小时获得500 star，发布40天超过4000 star。
+
+网友对优质信息其实是非常渴望的，有了这个周刊模板，每个人都可以半小时上线自己的「阮一峰周刊」，可以为全网的网友提供优质的工具和内容。如果你还懂技术，你还可以根据这篇文章的开发思路，去二开一个自己的版本。
+
+把这个项目开源出来也是为有志于发展副业但是找不到方向的朋友提供一个获取流量的切入点，动手实操并坚持下去就超过大部分竞争者了，希望每一位发展副业的朋友都像老渔夫桑地亚哥一样和大马林鱼战斗到底。
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

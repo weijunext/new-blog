@@ -1,0 +1,462 @@
+---
+title: 基于Lemon Squeezy开发你的全球可用的会员功能
+description: 书接上回，本文介绍了基于Lemon Squeezy怎么开发你的会员系统
+slug: integrate-lemonsqueezy-api
+tags: NextJS,NextJS实战
+date: 2023-10-30
+pin: pin
+---
+
+「会员功能系列文章」第一篇中《[👉带你设计一套会员功能并开发它](/article/build-membership-feature)》，我们梳理了购买会员前后的处理逻辑，这一篇我们就来开发购买会员的功能。
+
+## 选择支付工具
+
+首先，我们要选择支付平台和工具。如果你的产品立足国内，那么用支付宝和微信支付就足够，如果你的产品还想放眼海外，我推荐使用Lemon Squeezy，原因有两个：
+
+1. Lemon Squeezy会根据用户所在地区提供不同的付费通道，其中包括微信、支付宝、信用卡和Paypal等全球常见的支付方式。
+2. Lemon Squeezy不仅仅是一个支付接入平台，它更像一个完整的解决方案，例如：它可以帮你管理订阅的自动续费，而微信支付、支付宝这样的渠道只有收付款功能，收付款以外的逻辑需要你自己设计开发。
+
+上一篇文章我们设计了两个付费功能：月度会员和加油包。本文仍延续这样的会员方案设计，并基于Lemon Squeezy来开发它们。
+
+关于Lemon Squeezy的知识就不赘述了，这些都是可以通过啃官方文档学到的知识，如果确有搞不清楚的地方，请评论区提问～。
+
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起赚美刀。
+
+## 设置Lemon Squeezy产品
+
+在Lemon Squeezy的后台，先创建一个产品，在创建产品的侧栏里，要添加两个vaiant，可以理解为同一个产品的不同型号，跟你网购时一样，添加不同型号可以方便用户在一个产品链接里切换自己想付费购买的服务。
+
+![1.png](/assets/032/1.png)
+
+滚动条滚到底部，在Confirmation modal里设置付费成功后的返回地址，默认是跳到Lemon Squeezy的订单页，建议设置为自己的网站，即用户进入付费页面前的URL
+
+![2.png](/assets/032/2.png)
+
+然后通过页面上和侧栏卡片里的「`…`」按钮获取`store_id`、`product_id`和`variant_id`，并加入环境变量
+
+```bash
+# .env
+
+# Subscriptions
+LEMON_SQUEEZY_HOST=https://api.lemonsqueezy.com/v1
+LEMON_SQUEEZY_API_KEY=
+LEMON_SQUEEZY_STORE_ID=
+LEMON_SQUEEZY_PRODUCT_ID=
+LEMON_SQUEEZY_MEMBERSHIP_MONTHLY_VARIANT_ID=
+LEMON_SQUEEZY_MEMBERSHIP_SINGLE_TIME_VARIANT_ID=
+LEMONS_SQUEEZY_SIGNATURE_SECRET=
+```
+
+我们使用`lemonsqueezy.ts`来进行开发
+
+```bash
+yarn add lemonsqueezy.ts
+```
+
+初始化`lemonsqueezy`
+
+```tsx
+// lib/lemonsqueezy/lemons.ts
+
+import { LemonsqueezyClient } from "lemonsqueezy.ts";
+export const client = new LemonsqueezyClient(process.env.LEMON_SQUEEZY_API_KEY as string);
+```
+
+## 获取购买链接
+
+我们需要在前端展示一个引导用户购买会员的区域，通过不同角色的权限对比，突出付费用户的可获得的优势，例如图片里这样：
+
+![3.png](/assets/032/3.png)
+
+中间的卡片是升级月度会员，右边的卡片是购买加油包。
+
+卡片上的按钮是用来请求后台获取付费链接的：
+
+```tsx
+const subscribe = async (vairant) => {
+    if (!user || !user.userId) {
+      toast.error("Please login first");
+      return;
+    }
+    try {
+      const { checkoutURL } = await axios.post<any, CreateCheckoutResponse>(
+        "/api/payment/subscribe",
+        { userId: user.userId, type: vairant } // 因为一个产品有两个variant，所以需要传递variant用于判断
+      );
+			// 在响应中获取到购买URL，客户端将把用户重定向到该URL，用户可在该URL内进行付费和跳转
+      window.location.href = checkoutURL;
+    } catch (err) {
+      console.log(err);
+    }
+  };
+```
+
+后端添加对应接口
+
+```tsx
+// app/api/payment/subscribe/route.ts
+
+import { axios } from "@/lib/axios";
+import prisma from "@/lib/prisma";
+import type { CreateCheckoutResult } from "lemonsqueezy.ts/dist/types";
+import { NextResponse } from "next/server";
+
+const VARIANT_IDS_BY_TYPE = {
+  'subscription': process.env.LEMON_SQUEEZY_MEMBERSHIP_MONTHLY_VARIANT_ID || '', // checkouts 请求传参要用string，但是webhook收到的variant_id是number
+  'single': process.env.LEMON_SQUEEZY_MEMBERSHIP_SINGLE_TIME_VARIANT_ID || '',
+}
+
+export async function POST(request: Request) {
+  try {
+    const { userId, type } = await request.json() as { userId: string, type: UpgradeType };
+    // 检查用户和variant是否存在
+		if (!userId) {
+      return NextResponse.json({ message: "Your account was not found" }, { status: 401 });
+    }
+		const variantId = VARIANT_IDS_BY_TYPE[type]
+    if (!type || !variantId) {
+      return NextResponse.json({ message: "The variant was not found" }, { status: 401 });
+    }
+    const user = await prisma.user.findUnique({
+      where: { userId: userId.toString() },
+      select: { userId: true, email: true, username: true },
+    });
+    if (!user) return NextResponse.json({ message: "Your account was not found" }, { status: 401 });
+    
+		// 通过 API 获取购买链接
+		const checkout = (await axios.post(
+      `${process.env.LEMON_SQUEEZY_HOST}/checkouts`,
+      {
+        data: {
+          type: "checkouts",
+          attributes: { checkout_data: { custom: { email: user.email, userId: user.userId, username: user.username, type } } },
+          relationships: {
+            store: { data: { type: "stores", id: process.env.LEMON_SQUEEZY_STORE_ID } },
+            variant: { data: { type: "variants", id: variantId.toString() } },
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.LEMON_SQUEEZY_API_KEY}`,
+          Accept: 'application/vnd.api+json',
+          'Content-Type': 'application/vnd.api+json'
+        }
+      }
+    )) as CreateCheckoutResult;
+
+    return NextResponse.json({ checkoutURL: checkout.data.attributes.url }, { status: 200 });
+  } catch (err: any) {
+    return NextResponse.json({ message: err.message || err }, { status: 500 });
+  }
+}
+```
+
+其中，`attributes.checkout_data.custom`是自定义字段，可以把用户标识传进去，在用户付费完成后，Lemon Squeezy会一起把`custom`内的信息传回来（下文介绍）。
+
+## 接收Lemon Squeezy事件推送
+
+在微信开发里，我们通常叫“事件推送”，在Lemon Squeezy里叫做Webhooks，它们的作用是一样，都是用来接收第三方平台推送的数据，用于闭环处理我们自己平台内的逻辑。
+
+此时我们需要内网穿透，推荐使用Localtunnel或者VSCode最新版自带的穿透功能，可以看《👉[内网穿透简介](/article/port-forwarding)》。
+
+有了穿透地址后，到Lemon Squeezy里设置Webhooks
+
+![4.png](/assets/032/4.png)
+
+如果你要用来接收事件推送的接口是`/api/payment/webhooks`，那么Callback URL应该填入`http://[YOUR URL]/api/payment/webhooks`。
+
+Signing Secret就是环境变量里的`LEMONS_SQUEEZY_SIGNATURE_SECRET`。
+
+事件需勾选`order_created`、`subscription_created`、`subscription_updated`。
+
+现在，我们创建对应的API
+
+```tsx
+// app/api/payment/webhooks/route.ts
+
+import dayjs from "dayjs";
+import { headers } from "next/headers";
+import { Buffer } from "buffer";
+import crypto from "crypto";
+import rawBody from "raw-body";
+import { Readable } from "stream";
+import { NextResponse } from "next/server";
+import { client } from "@/lib/lemonsqueezy/lemons";
+import prisma from "@/lib/prisma";
+import redis from "@/lib/redis";
+import { boostPack } from "@/lib/upgrade/upgrade";
+import { clearTodayUsage } from "@/lib/usage/usage";
+
+export async function POST(request: Request) {
+  console.log('webhook');
+  const body = await rawBody(Readable.from(Buffer.from(await request.text())));
+  const headersList = headers();
+  const payload = JSON.parse(body.toString());
+
+  const sigString = headersList.get("x-signature");
+  if (!sigString) {
+    console.error(`Signature header not found`);
+    return NextResponse.json({ message: "Signature header not found" }, { status: 401 });
+  }
+  const secret = process.env.LEMONS_SQUEEZY_SIGNATURE_SECRET as string;
+  const hmac = crypto.createHmac("sha256", secret);
+  const digest = Buffer.from(hmac.update(body).digest("hex"), "utf8");
+  const signature = Buffer.from(
+    Array.isArray(sigString) ? sigString.join("") : sigString || "",
+    "utf8"
+  );
+  // 校验签名
+  if (!crypto.timingSafeEqual(digest, signature)) {
+    return NextResponse.json({ message: "Invalid signature" }, { status: 403 });
+  }
+
+  const userId = payload.meta.custom_data && payload.meta.custom_data.userId || '';
+  // 检查custom里的参数
+	if (!userId) return NextResponse.json({ message: "No userId provided" }, { status: 403 });
+
+	// 正式处理
+  const first_order_item = payload.data.attributes.first_order_item || null
+  // 加油包
+  if (first_order_item && parseInt(first_order_item.variant_id) === parseInt(process.env.LEMON_SQUEEZY_MEMBERSHIP_SINGLE_TIME_VARIANT_ID as string)) {
+    return await singlePay(first_order_item, payload, userId)
+  }
+  // 月度订阅
+  if (!first_order_item && parseInt(payload.data.attributes.variant_id) === parseInt(process.env.LEMON_SQUEEZY_MEMBERSHIP_MONTHLY_VARIANT_ID as string)) {
+    return await subscription(payload, userId)
+  }
+}
+```
+
+出于安全考虑，在正式处理数据之前，我们需要先对签名进行校验，然后判断`custom`里的字段有效性。
+
+购买加油包属于一次性购买，购买阅读会员是按月续费，两种购买方式收到的数据结构是不一样的，可以通过`first_order_item`字段进行区分，一次性购买的订单有这个字段（是一个包含订单核心信息的对象），而按月续费的则没有。
+
+### 购买加油包
+
+```tsx
+const getSinglePayOrderKey = ({ identifier }: { identifier: string }) => {
+  return `single_${identifier}`
+}
+
+const singlePay = async (first_order_item, payload, userId) => {
+  try {
+		// 判断product是否正确
+    if (
+      parseInt(first_order_item.product_id) !==
+      parseInt(process.env.LEMON_SQUEEZY_PRODUCT_ID as string)
+    ) {
+      return NextResponse.json({ message: "Invalid product" }, { status: 403 });
+    }
+		// 判断用户是否存在
+	  const user = await prisma.user.findUnique({
+	    where: { userId: userId.toString() },
+	    select: { userId: true, email: true, username: true },
+	  });
+	  if (!user) return NextResponse.json({ message: "Your account was not found" }, { status: 401 });
+
+    switch (payload.meta.event_name) {
+      case "order_created": {
+        const subscription = await client.retrieveOrder({ id: payload.data.id });
+        // Lemon Squeezy 可能推送多次，这里需要判断order是否已存在，相同order仅处理首次收到的推送
+				 // 检查redis里有没有存这个order_id，如果没有，则调用boostPack和redis保存，如果有，则不处理，直接返回200
+        const key = await getSinglePayOrderKey({ identifier: payload.data.attributes.identifier })
+        const orderRedisRes = await redis.get(key)
+				 // 如果redis里没有这个key，则说明是首次推送
+        if (!orderRedisRes) {
+          await redis.setex(key, ONE_DAY, first_order_item.created_at) // key有效期1天
+          await boostPack({ userId }) // 调用上一篇文章设计的 boostPack 方法
+          return NextResponse.json({ status: 200 });
+        }
+        return NextResponse.json({ status: 200 }); // 返回200，Lemon Squeezy才会认为你已经把业务闭环
+      }
+
+      default: {
+        return NextResponse.json({ massage: 'event_name not support' }, { status: 400 });
+      }
+    }
+  } catch (e) {
+    return NextResponse.json({ message: 'single pay something wrong' }, { status: 500 });
+  }
+}
+```
+
+- 一次性购买只需要处理`order_created`事件
+- Lemon Squeezy有一个推送机制，最多推送4次以确保我们能够闭环购买逻辑，所以我们需要记录订单信息，通过判断`identifier`（具备唯一性）是否是新订单来避免重复添加加油包
+- Lemon Squeezy需要收到`status`为200的返回才会认为你正确处理了事件推送，如果`status`不是200，则在后台可以看到错误信息
+
+### 订阅月度会员
+
+Lemon Squeezy可以帮我们实现记录订阅用户、续费方式、自动续费等多种付费后的逻辑处理，所以接收订阅阅读会员的逻辑没有调用上一篇文章实现的函数。保存会员信息的方式也被我改了，没有存在Redis里，而是直接存到Postgres数据库了。
+
+```tsx
+const subscription = async (payload, userId) => {
+  try {
+    const attributes = payload.data.attributes
+		// 判断product是否正确
+    if (
+      parseInt(attributes.product_id) !==
+      parseInt(process.env.LEMON_SQUEEZY_PRODUCT_ID as string)
+    ) {
+      return NextResponse.json({ message: "Invalid product" }, { status: 403 });
+    }
+
+    switch (payload.meta.event_name) {
+      case "subscription_created": {
+        const subscription = await client.retrieveSubscription({ id: payload.data.id });
+        // 订阅
+        await prisma.user.update({
+          where: { userId },
+          data: {
+            subscriptionId: `${subscription.data.id}`,
+            customerId: `${payload.data.attributes.customer_id}`,
+            variantId: subscription.data.attributes.variant_id,
+            currentPeriodEnd: dayjs(subscription.data.attributes.renews_at).unix(),
+          },
+        });
+        // 清空今天已用次数
+        clearTodayUsage({ userId })
+        return NextResponse.json({ status: 200 });
+      }
+
+      case "subscription_updated": {
+        const subscription = await client.retrieveSubscription({ id: payload.data.id });
+        // 更新 订阅
+        const user = await prisma.user.findUnique({
+          where: { userId, subscriptionId: `${subscription.data.id}` },
+          select: { subscriptionId: true },
+        });
+				 if (!user || !user.subscriptionId) return NextResponse.json({ massage: 'userId or subscriptionId not found' }, { status: 400 });;
+
+        await prisma.user.update({
+          where: { userId, subscriptionId: user.subscriptionId },
+          data: {
+            variantId: subscription.data.attributes.variant_id,
+            currentPeriodEnd: dayjs(subscription.data.attributes.renews_at).unix(),
+          },
+        });
+        // 清空今天已用次数
+        clearTodayUsage({ userId })
+        return NextResponse.json({ status: 200 });
+      }
+
+      default: {
+        return NextResponse.json({ massage: 'event_name not support' }, { status: 400 });
+      }
+    }
+  } catch (e) {
+    console.log('subscription deal', e);
+    return NextResponse.json({ message: 'subscription something wrong' }, { status: 500 });
+  }
+}
+```
+
+- 按月订阅的推送数据从`payload.data.attributes`里读取
+- 按月订阅的订单，Lemon Squeezy会在到期后默认进行续费，所以我们需要监听`subscription_created`和`subscription_updated`两个事件，前者是创建订阅时触发，后者是创建订阅和更新订阅（包含续订、取消等）都会触发
+- `subscription_created`的处理中，建议记录`subcriptionId`（订阅的Id）、`customerId`（Lemon Squeezy记录的用户Id）、`variantId`（variant Id）和`currentPeriodEnd`（到期时间）
+- `subscription_updated`的处理中，需要更新`variantId`和`currentPeriodEnd`
+
+## 前端展示订阅信息
+
+我们已经完成与Lemon Squeezy的功能对接，现在最后一步就是要把用户的订阅/购买信息展示给用户。
+
+加油包的信息从Redis里读取就可以，和上一篇文章的逻辑一样。
+
+按月订阅的信息则要从数据库中读取：
+
+```tsx
+/
+ * lib/lemonsqueezy/subscription.ts
+ * 从数据库里读取用户角色和会员过期时间
+ */
+import prisma from "@/lib/prisma";
+import { SubScriptionInfo } from "@/types/subscribe";
+import { PrismaUser } from "@/types/user";
+
+export async function getUserSubscriptionStatus({ userId, defaultUser }: { userId: string; defaultUser?: PrismaUser }) {
+  let user = null
+  if (defaultUser) {
+    user = defaultUser
+  } else {
+    user = await prisma.user.findUnique({
+      where: { userId },
+      select: {
+        subscriptionId: true,
+        currentPeriodEnd: true,
+        customerId: true,
+        variantId: true,
+      },
+    });
+  }
+
+  if (!user) throw new Error("User not found");
+
+  const membershipExpire = (user.currentPeriodEnd || 1) * 1000 // 13位时间戳或非会员
+  const isMembership =
+    user.variantId &&
+    membershipExpire > Date.now().valueOf();
+
+  return {
+    subscriptionId: user.subscriptionId,
+    membershipExpire: isMembership ? membershipExpire : 1,
+    customerId: user.customerId,
+    variantId: user.variantId,
+    role: isMembership ? 2 : 1, // 会员 : 普通用户
+  } as SubScriptionInfo;
+}
+```
+
+- 通过过期时间判断用户当前的角色
+
+把加油包、月度会员、用户使用次数数据汇总到一个方法里：
+
+```tsx
+// lib/upgrade/checkStatus.ts
+
+export const checkStatus = async ({ userId }: UserId) => {
+  // 获取用户订阅信息（角色、会员到期时间戳）
+  const subscriptionRes = await getUserSubscriptionStatus({
+    userId,
+  })
+  // 根据角色计算当日剩余次数
+  const remainingInfo: DateRemaining = await getUserDateRemaining({ userId, role: subscriptionRes.role }) // 用户角色、当日剩余次数、加油包剩余次数
+
+  // 如果加油包次数大于0，计算加油包到期时间
+  let boostPackExpire = 0
+  if (remainingInfo.boostPackRemaining > 0) {
+    const boostPackKey = await getBoostPackKey({ userId })
+    boostPackExpire = await redis.ttl(boostPackKey)
+  }
+  return {
+    role: subscriptionRes.role,
+    todayRemaining: remainingInfo.userTodayRemaining,
+    membershipExpire: subscriptionRes.membershipExpire,
+    boostPackRemaining: remainingInfo.boostPackRemaining,
+    boostPackExpire: boostPackExpire,
+  }
+}
+```
+
+服务端组件调用这个方法就可以获取到所有必备信息，并展示到前端了。
+
+## 结语
+
+无论你使用哪个支付平台和工具，开发起来的原理都差不多，只有两个要点：
+
+1. 获取支付页面链接
+2. 提供Webhooks接收支付平台的事件推送，然后根据事件进行相应处理
+
+如果你还没理清楚会员功能的设计，请参考上一篇文章《[👉带你设计一套会员功能并开发它](/article/build-membership-feature)》。
+
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

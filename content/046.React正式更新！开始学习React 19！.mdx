@@ -1,0 +1,471 @@
+---
+title: React正式更新！开始学习React 19！
+description: 2024年4月，React 19的第一个版本发布，版本号是19.0.0-Beta，快来抢先学习新特性。
+slug: react-v19-beta
+tags: React
+date: 2024-04-28
+pin: pin
+---
+
+今年2月份，React 发布消息确认今年发布 v19 版本，尘封两年的版本号终于要更新了（详情点击：[React 19 发布在即，抢先学习一下新特性](/article/react-v19-preview)）。那时候，React 成员 **Andrew Clark** 明确了新版本将在3月或4月发布。
+
+要不怎么说「DDL是第一生产力」，这不4月底了，新版本就踩点发布了。这次发布的版本号是19.0.0-Beta。
+
+虽然只是 Beta 版，但也够让社区兴奋了：
+
+**Dan** 说「they did what」
+
+**Andrew Clark** 说「React 19: Never forwardRef again」
+
+**Josh W. Comeau** 说「Lots of nice quality-of-life improvements here!」
+
+唯一的遗憾是，经 React 成员 lauren 确认，React Compiler 又跳票了。这个东西原来的名称叫做「React Forget」，真就是 Forget 属性拉满了。
+
+总结一下 19.0.0-Beta 版本的发布的特性就是：
+
+1. 一个 Actions
+2. 三个新 hook
+3. 一个新 API
+4. ref 和 context 用法更方便
+5. 其他支撑类更新、服务端能力更新
+
+接下来本文一个个介绍。
+
+<Aside>
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起学习交流前端和Node技术
+
+</Aside>
+
+## Actions
+
+Actions 不是一个 API，是一种简化请求数据处理的方法统称。一个合格的 Actions 要能够简化异步操作，让开发者更专注于业务逻辑而不是状态管理。
+
+让我们通过一个简单的例子来理解Actions的作用。假设我们有一个表单，用户可以通过该表单更新他们的姓名。以前，我们可能会使用useState来手动管理表单状态、错误状态和提交状态，代码可能会看起来像这样：
+
+```tsx
+function UpdateName() {
+  const [name, setName] = useState("");
+  const [error, setError] = useState(null);
+  const [isPending, setIsPending] = useState(false);
+
+  const handleSubmit = async () => {
+    setIsPending(true);
+    const error = await updateName(name);
+    setIsPending(false);
+    if (error) {
+      setError(error);
+      return;
+    } 
+    redirect("/path");
+  };
+
+  return (
+    <div>
+      <input value={name} onChange={(event) => setName(event.target.value)} />
+      <button onClick={handleSubmit} disabled={isPending}>
+        Update
+      </button>
+      {error && <p>{error}</p>}
+    </div>
+  );
+}
+```
+
+这段代码需要手动处理许多细节。但是，有了 React 19 的 Actions，情况就有所优化，我们可以使用 `useTransition` hook 来处理表单提交，它会自动处理 pending 状态，让我们的代码更加简洁：
+
+```tsx
+function UpdateName() {
+  const [name, setName] = useState("");
+  const [error, setError] = useState(null);
+  const [isPending, startTransition] = useTransition();
+
+  const handleSubmit = async () => {
+    startTransition(async () => {
+      const error = await updateName(name);
+      if (error) {
+        setError(error);
+        return;
+      } 
+      redirect("/path");
+    })
+  };
+
+  return (
+    <div>
+      <input value={name} onChange={(event) => setName(event.target.value)} />
+      <button onClick={handleSubmit} disabled={isPending}>
+        Update
+      </button>
+      {error && <p>{error}</p>}
+    </div>
+  );
+}
+```
+
+在 `handleSubmit` 函数中，异步请求的逻辑被放入 `startTransition` 的回调中。`startTransition` 被调用时，React 会立即将 `isPending` 设为 true，表示过渡（请求）正在进行。然后 React 会在后台执行 `startTransition` 的回调函数，发送异步请求。在请求完成后，React 会自动将 `isPending` 切换为 false。
+
+我们只要将 `isPending` 绑定到提交按钮的 `disabled` 属性，这样在请求进行期间按钮会自动进入禁用状态，避免用户重复提交。
+
+下面总结一下 React 对 Actions 的约定和说明：
+
+- **命名约定**：使用异步过渡的函数可以被称为“Actions”。
+- **挂起状态**：Actions 自动管理提交数据的挂起状态。当发起请求时，挂起状态会自动启动，当最终状态更新后，挂起状态就会自动重置。这样可以确保用户在等待数据提交时能够获得反馈，同时在请求完成后清除挂起状态。
+- **乐观更新**：Actions 支持乐观更新，即在等待请求提交时就向用户显示正确的提交结果。如果最终请求失败，乐观更新会自动恢复到其原始值。
+- **错误处理**：Actions 提供了内置的错误处理功能。当请求失败时，你可以使用错误边界来显示错误信息。
+- **表单支持**：`<form>` 元素现在支持将函数传递给 `action` 和 `formAction` 属性。通过将函数传递给 `action` 属性，可以使用 Actions 来处理表单提交，默认情况下会在提交后自动重置表单。这简化了表单处理的过程，使其更加直观和高效。
+
+## 三个新 Hook
+
+为什么要先介绍 Actions 呢？因为 React 19 在 Actions 基础上引入了三个新 Hook，每一个都是为了简化开发者操作状态的复杂度。
+
+### useOptimistic
+
+`useOptimistic` 的主要目的是让我们可以在等待异步操作结果的时候，先假设操作成功并更新状态，然后再根据实际结果来确认状态。
+
+它的基本用法如下：
+
+```tsx
+import { useOptimistic } from 'react';
+
+function AppContainer() {
+  const [optimisticState, addOptimistic] = useOptimistic(
+    state,
+    // updateFn
+    (currentState, optimisticValue) => {
+      // merge and return new state
+      // with optimistic value
+    }
+  );
+}
+```
+
+其中：
+
+- `state`: 初始状态和没有正在进行的操作时返回的状态。
+- `updateFn(currentState, optimisticValue)`: 一个纯函数，接受当前状态和 `addOptimistic` 传入的乐观更新值，返回合并后的乐观状态。
+- `optimisticState`: 乐观状态,如果没有正在进行的操作，则等于 `state`，否则等于 `updateFn` 的返回值。
+- `addOptimistic`: 一个用于触发乐观更新的函数，接受一个任意类型的 `optimisticValue` 参数，并将其传递给 `updateFn`。
+
+`useOptimistic` 的使用场景非常广泛，例如：表单提交、点赞、收藏、删除等需要即时反馈的场景均适用。
+
+这是一个删除数据乐观更新的例子：
+
+```tsx
+import React, { useState } from 'react';
+import { useOptimistic } from 'react';
+
+function AppContainer() {
+	// 默认数据
+  const [state, setState] = useState([
+    { id: 1, name: 'Item 1' },
+    { id: 2, name: 'Item 2' },
+    { id: 3, name: 'Item 3' },
+  ]);
+
+	// 定义更新函数，该函数基于当前状态和乐观值（要删除的条目的ID）来更新状态
+  const updateFn = (currentState, optimisticId) => {
+    return currentState.filter(item => item.id !== optimisticId);
+  };
+
+  const [optimisticState, addOptimistic] = useOptimistic(state, updateFn);
+
+	// 删除item
+  const deleteItem = async (itemId) => {
+    // 首先乐观地更新 UI
+    addOptimistic(itemId);
+
+    // 模拟 API 请求延迟
+    setTimeout(() => {
+      // 假设这里是 API 删除调用，完成后更新实际状态
+      setItems(currentItems => currentItems.filter(item => item.id !== itemId));
+    }, 2000);
+  };
+
+  return (
+    <div>
+      <h1>Optimistically Deleting Items</h1>
+      <ul>
+        {optimisticState.map(item => (
+          <li key={item.id}>
+            {item.name} <button onClick={() => deleteItem(item.id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default AppContainer;
+```
+
+### useActionState
+
+`useActionState` 原名叫做 `useFormState`，19版本启用新名称，返回参数也发生了变化（奇怪的是，React 还未更新 `useActionState` 的文档，欺负程序员不看文档吗？🐶）。
+
+![1.png](/assets/046/1.png)
+
+这是 useActionState 的最新基本用法：
+
+```tsx
+const [state, action， pending] = useActionState(fn, initialState, permalink?);
+```
+
+其中返回参数有：
+
+- `state`: 表示当前的状态。在第一次渲染时，它等于初始状态 `initialState`。在执行操作后，它将是最新结果。
+- `action`: 这是一个函数，用于执行操作。当调用这个函数时，它将触发 `fn` 函数的执行，并更新状态。
+- `pending`: 这是新增参数，它是一个布尔值，表示当前是否正在执行操作。如果正在执行操作，则为 `true`，否则为 `false`。
+
+传入的参数有：
+
+- `fn`：这是一个函数，action被调用时会触发，随后返回新的值。
+- `initialState`：这是初始值，如果没有初值，要设置为null。
+- `permalink`：这是一个可选的字符串参数，通常与server action一起使用。
+
+下面是 `useActionState` 与 form action 一起使用的例子，实现了更新名称的功能，如果更新失败，页面上显示 error，如果更新成功，跳转到更新后的页面：
+
+```tsx
+import { useActionState } from 'react';
+
+function ChangeName({ name, setName }) {
+  // 使用 useActionState 创建与表单操作相关联的状态
+  const [error, submitAction, isPending] = useActionState(
+    // 第一个参数：表单操作函数
+    async (previousState, formData) => {
+      // 在此定义表单操作的逻辑
+      // 这个函数会在表单提交时被调用
+      // 它接收两个参数：
+      // - previousState: 前一个状态，初始为 null，之后为上一次操作的返回值
+      // - formData: 表单数据对象，可通过 formData.get("name") 获取表单字段的值
+      const error = await updateName(formData.get("name"));
+
+      // 如果操作中出现了错误，则返回错误信息
+      if (error) {
+        return error;
+      }
+
+      // 如果操作成功，则执行重定向
+      redirect("/path");
+    }, 
+    // 第二个参数：初始状态，这里为 null，因为初始状态并不重要
+    null
+  );
+
+  // 返回表单及相关的状态和行为
+  return (
+    <form action={submitAction}>
+      <input type="text" name="name" />
+      <button type="submit" disabled={isPending}>
+        提交
+      </button>
+      
+      {/* 错误信息 */}
+      {error && <p>{error}</p>}
+    </form>
+  );
+}
+```
+
+### useFormStatus
+
+`useFormStatus` 用来获取表单提交的状态信息。它的基本用法如下：
+
+```tsx
+const { pending, data, method, action } = useFormStatus();
+```
+
+其中：
+
+- `pending`: 一个布尔值，表示父级 `<form>` 是否正在提交。如果为 `true`，表示表单正在提交，否则为 `false`。
+- `data`: 一个实现了 FormData 接口的对象，包含父级 `<form>` 正在提交的数据。如果没有正在进行的提交或没有父级 `<form>`，则为 `null`。
+- `method`: 一个字符串值，表示父级 `<form>` 使用的 HTTP 方法，可以是 get 或 post。
+- `action`: 一个指向传递给父级 `<form>` 的 action 属性的函数的引用。如果没有父级 `<form>`，则该属性为 `null`。
+
+例如，在 form action 中，开发者可以通过 `useFormStatus` 获取表单状态：
+
+```tsx
+import { useFormStatus } from "react-dom";
+import action from './actions';
+
+function Submit() {
+  const status = useFormStatus();
+  return <button disabled={status.pending}>Submit</button>
+}
+
+export default function App() {
+  return (
+    <form action={action}>
+      <Submit />
+    </form>
+  );
+}
+```
+
+这个写法是不是熟悉又陌生？如果你想到了 context，那就对了，你可以理解为 `useFormStatus` 替代了一部分 context provider 的能力，而且写法比 context 要更加简洁。
+
+使用 `useFormStatus` 还有两个注意点：
+
+1. `useFormStatus` Hook 必须在渲染在 `<form>` 内部的组件中调用。
+2. `useFormStatus` 只会返回父级 `<form>` 的状态信息，而不会返回同一组件或其子组件中任何其他 `<form>` 的状态信息。
+
+## 一个新 API——use
+
+以前 `use` 是被归类到 hook，但是 19 版本的文档把 `use` 放在 API 文档里面，所以它就成了一个新的 API 啦！
+
+use 用于在组件中读取资源的值，这个资源可以是一个 Promise 或者一个 context。
+
+它的基本用法如下：
+
+```tsx
+const value = use(resource);
+```
+
+在实际代码中可能是这样：
+
+```tsx
+import { use } from 'react';
+
+function MessageComponent({ messagePromise }) {
+  const message = use(messagePromise);
+  const theme = use(ThemeContext);
+  // ...
+```
+
+use 主要是给 Next.js 这样的上层框架使用的。以 Next.js 为例，如果是在服务端组件中获取数据，更推荐使用 async…await，而不是 use。如果是在客户端组件中获取数据，也推荐在服务端组件里创建 Promise，以 props 传递给客户端组件调用。
+
+use 还可以与 Suspense 边界共用。如果调用 `use` 的组件被包裹在一个 Suspense 边界内，会显示指定的 fallback。一旦 Promise 被 resolve，Suspense 的 fallback 就会被返回的数据替换。如果传给 `use` 的 Promise 被 reject，最近的错误边界的 fallback 将会被显示。
+
+## ref 和 context 用法简化
+
+如果你只使用 React 客户端的能力，那么这一节介绍的变更会是你最关注的。
+
+### ref 抛弃 forwardRef
+
+你还记得被 `forwardRef` 支配的恐惧吗？从 React 19 开始，我们可以抛弃 `forwardRef` 了。现在开始，ref 可以当作 prop 进行传递。
+
+举个例子：假设我们有一个函数组件 `TextInput`，它是一个简单的输入框组件，接受一个 `placeholder` 属性用于设置输入框的占位符文本。现在，我们希望在父组件中获取到输入框的引用，以便在需要时聚焦到输入框上，代码可以这么写：
+
+```tsx
+import React, { useRef } from 'react';
+
+// 定义一个函数组件 TextInput
+function TextInput({ placeholder, ref }) {
+  return <input placeholder={placeholder} ref={ref} />;
+}
+
+// 父组件
+function ParentComponent() {
+  // 创建一个 ref 来存储输入框的引用
+  const inputRef = useRef(null);
+
+  // 在某个事件处理函数中获取输入框的引用并聚焦
+  const focusInput = () => {
+    inputRef.current.focus();
+  };
+
+  return (
+    <div>
+      {/* 
+        将 inputRef 传递给 TextInput 组件，
+        这样 TextInput 组件内部就可以使用这个 ref 了
+      */}
+      <TextInput placeholder="Enter your name" ref={inputRef} />
+      <button onClick={focusInput}>Focus Input</button>
+    </div>
+  );
+}
+
+export default ParentComponent;
+```
+
+是不是心智负担比使用 forwardRef 要轻得多？
+
+### context 可当作 provider
+
+从在 React 19 开始，开发者可以直接将 `<Context>` 直接作为 provider，而不是使用 `<Context.Provider>`。
+
+假设我们有一个名为 `ThemeContext` 的 context，用于管理主题信息。在 React 19 中，我们可以像下面这样使用 `<ThemeContext>` 作为提供者：
+
+```tsx
+import React, { createContext } from 'react';
+
+// 创建一个主题上下文
+const ThemeContext = createContext('');
+
+// App 组件作为主题提供者
+function App({ children }) {
+  return (
+    <ThemeContext value="dark">
+      {children}
+    </ThemeContext>
+  );
+}
+```
+
+未来 `Context.Provider` 会被弃用并移除。
+
+## 其他更新
+
+本次发布的新特性还有一些属于支撑类特性和拓展服务端能力的特性，因为纯客户端的 React 开发中使用场景很少，所以不再详细介绍，只简单提炼要点：
+
+- 服务端组件和 `server actions` 将成为稳定特性，这两个概念属于熟悉 Next.js/Remix 的人已经烂熟于心，而不用 Next.js/Remix 的人根本用不到。
+- `useDeferredValue` 增加了第二个参数，可选，用来表示初始值。即现在 `useDeferredValue` 的用法是这样： `const value = useDeferredValue(deferredValue, initialValue?);`
+- 支持在 React 代码里编写 document metadata，即在页面组件编写`<title>` `<link>` 和 `<meta>` 标签会自动添加应用的 `<head>` 上面：
+    
+    ```tsx
+    function BlogPost({post}) {
+      return (
+        <article>
+          <h1>{post.title}</h1>
+          <title>{post.title}</title>
+          <meta name="author" content="Josh" />
+          <link rel="author" href="https://twitter.com/joshcstory/" />
+          <meta name="keywords" content={post.keywords} />
+          <p>
+            Eee equals em-see-squared...
+          </p>
+        </article>
+      );
+    }
+    ```
+    
+- 支持在 React 代码里编写 stylesheets，即在页面组件编写 `<link rel="stylesheet" href="...">`
+- 支持在 React 代码里编写 `<script async="" src="...">`，最终也会自动添加到 `<head>` 标签内
+- 支持预加载资源，最终也会自动添加到 `<head>` 标签内：
+    
+    ```tsx
+    import { prefetchDNS, preconnect, preload, preinit } from 'react-dom'
+    function MyComponent() {
+      preinit('https://.../path/to/some/script.js', {as: 'script' }) // loads and executes this script eagerly
+      preload('https://.../path/to/font.woff', { as: 'font' }) // preloads this font
+      preload('https://.../path/to/stylesheet.css', { as: 'style' }) // preloads this stylesheet
+      prefetchDNS('https://...') // when you may not actually request anything from this host
+      preconnect('https://...') // when you will request something but aren't sure what
+    }
+    ```
+    
+
+## 总结
+
+最后，让我用黄玄的一段话作为总结：「Probably the single most critical principle I've learned from React is to be fearless in defining new conceptual abstractions and never compromise on the accuracy and composability of these definitions——我从 React 身上学到的最重要的一条原则可能就是，在定义新的概念抽象时要无所畏惧，绝不要在这些定义的准确性和可组合性上妥协」。
+
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

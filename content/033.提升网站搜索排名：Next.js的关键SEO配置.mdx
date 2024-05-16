@@ -1,0 +1,400 @@
+---
+title: 提升网站搜索排名：Next.js的关键SEO配置
+description: 本文介绍了 Next.js 里 metadata 的配置与管理、sitemap 的导出和网站访问追踪的引入实现，希望能够帮助你步入 SEO 的优化之路。
+slug: seo-key-options
+slugId: 979b9033-188c-4d88-bfff-6cf74d28420d
+tags: NextJS,NextJS实战
+date: 2023-10-06
+---
+
+Next.js 官方文档里介绍了一些关于 metadata 和 sitemap 的配置，但整体来说只算抛砖引玉，所用的方法并不是 Next.js 开发者使用的主流方法。本文就来介绍一下 metadata 的配置与管理、sitemap 的导出和网站访问追踪的引入实现，希望能够帮助你步入 SEO 的优化之路。
+
+## metadata
+
+从 Next.js v13 开始，Next.js 引入了 metadata API，允许开发者为每个页面定义 metadata（例如网站标题、描述、关键词等），确保每个页面可以显示准确的相关信息，这一实现可以帮助开发者更好地进行 SEO 优化。
+
+这是为页面添加 metadata 的方法：
+
+```tsx
+export const metadata = {
+  // ……
+};
+
+export default function Page() {}
+```
+
+通常来说，我们希望有一个统一的配置文件，完成共享的 metadata 配置，然后在需要自定义的页面里，既能共享配置，又可以对个别属性进行特殊处理。
+
+我的做法是创建一个 `config/site.ts` 文件，写入共享的配置。这里分享一下我的配置：
+
+```tsx
+const baseSiteConfig = {
+  name: "Next.js Demos",
+  description:
+    "Dive into next.js and react. Share tutorials on the technologies within the Next.js ecosystem.",
+  url: "https://nextjs.weijunext.com",
+  keywords: [
+    "Next.js",
+    "React",
+    "Tailwind CSS",
+    "Server Components",
+    "Client Components",
+    "next-auth",
+    "Upstash",
+    "Redis",
+    "Prisma",
+    "Postgres",
+    "Docker",
+    "Contentlayer",
+  ],
+  authors: [
+    {
+      name: "weijunext",
+      url: "https://weijunext.com",
+    }
+  ],
+  creator: '@weijunext',
+  themeColor: '#fff',
+	// 可以在这个网站生成所有平台的ico：https://realfavicongenerator.net/
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-16x16.png",
+    apple: "/apple-touch-icon.png",
+  },
+  ogImage: "https://nextjs.weijunext.com/og.jpg",
+  links: {
+    twitter: "https://twitter.com/weijunext",
+    github: "https://github.com/weijunext/nextjs-learn-demos",
+  },
+}
+
+export const siteConfig = {
+  ...baseSiteConfig,
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: baseSiteConfig.url,
+    title: baseSiteConfig.name,
+    description: baseSiteConfig.description,
+    siteName: baseSiteConfig.name,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: baseSiteConfig.name,
+    description: baseSiteConfig.description,
+    images: [`${baseSiteConfig.url}/og.png`],
+    creator: baseSiteConfig.creator,
+  },
+}
+```
+
+这个配置里比较容易让人疑惑的就是 openGraph 和 twitter：
+
+1. openGraph配置
+
+这部分配置是为了定义网页在被分享到社交媒体平台时的展现方式：
+
+- type: 定义了网站的类型。常见的值包括"website"、"article"等。这里设置为"website"，意味着这是一个普通的网站页面，而不是特定的文章或其他内容类型。
+- locale: 网页的地区和语言设置。
+- url: 网页的完整URL。
+- title: 网页的标题，通常在分享预览中作为大标题显示。
+- description: 网页的简短描述，用于告诉用户这个链接的内容是什么。
+- siteName: 网站的名称，通常用于区分不同的网站源。
+1. twitter配置
+
+这部分配置是为了定义网页在被分享到Twitter时的展现方式：
+
+- card: 定义了 Twitter 卡片的类型。"summary_large_image"意味着卡片将展示一个大图片以及摘要信息。其他类型还包括"summary"、"app"等。
+- title: Twitter 卡片的标题。
+- description: 对网页内容的简短描述。
+- images: 一个图片 URL 数组，表示要在 Twitter 卡片上展示的图片。这里用的是`og.png`，它是为社交媒体分享专门设计的图片。
+- creator: Twitter 卡片的创建者的 Twitter 用户名。这有助于引导关注并增加互动。
+
+以 RootLayout 里导出 metadata 为例，用法如下：
+
+```tsx
+export const metadata = {
+  title: siteConfig.name,
+  description: siteConfig.description,
+  keywords: siteConfig.keywords,
+  authors: siteConfig.authors,
+  creator: siteConfig.creator,
+  themeColor: siteConfig.themeColor,
+  icons: siteConfig.icons,
+  metadataBase: siteConfig.metadataBase,
+  openGraph: siteConfig.openGraph,
+  twitter: siteConfig.twitter,
+};
+
+export default function RootLayout() {}
+```
+
+实际效果如下，输入的网址显示了 `og.png`，点击可打开网址：
+
+![og-test.png](/assets/033/og-test.png)
+
+## sitemap
+
+sitemap 是向搜索引擎展示网站结构的工具，可以理解为网站地图。有了 `sitemap.xml`，搜索引擎可以更高效地爬取网站，确保内容更快地展现在搜索结果中。对于大型的、内容丰富的网站，或是频繁更新的网站，sitemap 带来的效益是非常高的。
+
+Next.js 默认并不自动生成 `sitemap.xml`，我们可以通过以下三种方式进行配置：
+
+1. 手动创建`sitemap.xml`：如果你的网站相对较小，可以手动创建`sitemap.xml`。例如：
+    
+    ```xml
+    <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+      <url>
+        <loc>https://nextjs.weijunext.com</loc>
+        <lastmod>2023-010-06T15:02:24.021Z</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>1</priority>
+      </url>
+      <url>
+        <loc>https://nextjs.weijunext.com/hooks</loc>
+        <lastmod>2023-010-06T15:02:24.021Z</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+      </url>
+    </urlset>
+    ```
+    
+2. 创建`sitemap.ts`：和上一个方法不同的是，这种方法是维护 js 或 ts 文件，Next.js 会自动帮我们转成 xml 格式的文件。
+    
+    在 `sitemap.ts` 里，可以手动填写站点，也可以写个自动化获取路径的方法。例如：
+    
+    ```tsx
+    import { MetadataRoute } from 'next'
+    
+    export default function sitemap(): MetadataRoute.Sitemap {
+      return [
+        {
+          url: 'https://nextjs.weijunext.com',
+          lastModified: new Date(),
+          changeFrequency: 'yearly',
+          priority: 1,
+        },
+        {
+          url: 'https://nextjs.weijunext.com/hooks',
+          lastModified: new Date(),
+          changeFrequency: 'monthly',
+          priority: 0.8,
+        }
+      ]
+    }
+    ```
+    
+3. 使用外部库：`next-sitemap`是一个非常流行的库，可以帮助我们自动生成和更新sitemap。
+    
+    使用步骤如下：
+    
+    - 第一步：安装依赖
+        
+        ```bash
+        yarn add next-sitemap
+        ```
+        
+    - 第二步：根目录创建文件 `next-sitemap.config.js`，获取静态站点列表，配置主要属性：
+        
+        ```jsx
+        /
+         * @type {import('next-sitemap').IConfig}
+         * @see https://github.com/iamvishnusankar/next-sitemap#readme
+         */
+        const fs = require('fs');
+        const path = require('path');
+        module.exports = {
+          siteUrl: 'https://nextjs.weijunext.com',
+          changefreq: 'daily',
+          priority: 0.7,
+          exclude: ['/server-sitemap-index.xml'],
+          generateRobotsTxt: true,
+          sitemapSize: 5000, // 站点超过5000个，拆分到多个文件
+          robotsTxtOptions: {
+            additionalSitemaps: [
+              'https://nextjs.weijunext.com/server-sitemap-index.xml',
+            ],
+            policies: [
+              {
+                userAgent: '*',
+                allow: '/',
+              },
+              {
+                userAgent: 'AhrefsBot',
+                disallow: ['/'],
+              },
+              {
+                userAgent: 'SemrushBot',
+                disallow: ['/'],
+              },
+              {
+                userAgent: 'MJ12bot',
+                disallow: ['/'],
+              },
+              {
+                userAgent: 'DotBot',
+                disallow: ['/'],
+              },
+            ],
+          },
+        };
+        ```
+        
+        截至发文日期，这个方法在 app router 下无法获取静态站点，该 issues 还是 `bug` 状态。
+        
+    - 第三步：创建 `app/server-sitemap-index.xml/route.ts` 文件，并请求动态站点列表（如果不需要动态站点，可以去掉这一步）
+        
+        ```tsx
+        import { getServerSideSitemapIndex } from 'next-sitemap'
+        
+        export async function GET(request: Request) {
+          // Method to source urls from cms
+          // const urls = await fetch('https//example.com/api')
+        
+          return getServerSideSitemapIndex([
+            'https://example.com/path-1.xml',
+            'https://example.com/path-2.xml',
+          ])
+        }
+        ```
+        
+    - 第四步：`package.json` 添加导出 `sitemap.xml` 的命令：
+        
+        ```json
+        {
+        	"build": "next build",
+        	"postbuild": "next-sitemap"
+        }
+        ```
+        
+    - 如果你使用的是 pnpm，还需要创建 `.npmrc` 文件
+        
+        ```bash
+        //.npmrc
+        enable-pre-post-scripts=true
+        ```
+        
+    
+    执行 `npm run postbuild` 命令后，public 文件夹下就会生成 `robots.txt` 和 `sitemap.xml` 两个文件。
+    
+
+`sitemap.xml` 准备之后，部署到线上环境，然后把 `sitemap.xml` 上传给搜索引擎（如：Google Search Console），这样很快就会被搜索引擎收录。
+
+## 添加统计代码
+
+网站发布后，如果我们想监测各个页面的访问量，这就要用到第三方统计工具了，最受欢迎的当属谷歌分析和百度统计。
+
+你只需要登录谷歌分析和百度统计的网站，创建一个专用的统计代码就可以使用。但是，创建后的统计代码不能直接复制到你的代码里，在 Next.js 里需要用 `dangerouslySetInnerHTML` 注入。实现方式如下：
+
+谷歌分析：
+
+```tsx
+"use client";
+import Script from "next/script";
+const GoogleAnalytics = () => {
+  return (
+    <>
+      <Script
+        strategy="afterInteractive"
+        src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GOOGLE_ID}`}
+      />
+      <Script
+        id="gtag-init"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', '${process.env.NEXT_PUBLIC_GOOGLE_ID}', {
+            page_path: window.location.pathname,
+            });
+          `,
+        }}
+      />
+    </>
+  );
+};
+export default GoogleAnalytics;
+```
+
+百度统计：
+
+```tsx
+"use client";
+import Script from "next/script";
+const BaiDuAnalytics = () => {
+  return (
+    <>
+      <Script
+        id="baidu-tongji"
+        strategy="afterInteractive"
+        dangerouslySetInnerHTML={{
+          __html: `
+          var _hmt = _hmt || [];
+          (function() {
+            var hm = document.createElement("script");
+            hm.src = "https://hm.baidu.com/hm.js?${process.env.NEXT_PUBLIC_BAIDU_TONGJI}";
+            var s = document.getElementsByTagName("script")[0]; 
+            s.parentNode.insertBefore(hm, s);
+          })();
+          `,
+        }}
+      />
+    </>
+  );
+};
+export default BaiDuAnalytics;
+```
+
+然后在 `RootLayout` 引入两个组件：
+
+```tsx
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body>
+        <GoogleAnalytics />
+        <BaiDuAnalytics />
+        <ThemeProvider>
+          {/* children */}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+查看一下统计后台，有统计数据就说明代码正确：
+
+![ga.png](/assets/033/ga.png)
+
+![bdtj.png](/assets/033/bdtj.png)
+
+## 结语
+
+本文介绍了 Next.js 的 metadata 和 sitemap 的用法，还介绍了谷歌分析和百度统计的引入方式，这些都是 SEO 优化的关键步骤，也希望大家通过研究和优化 SEO 让网站在搜索引擎里获得高排名。
+
+## 源码与演示
+
+源码1：👉[metadata](https://github.com/weijunext/nextjs-learn-demos/tree/metadata)
+
+源码2：👉[sitemap](https://github.com/weijunext/nextjs-learn-demos/tree/sitemap)
+
+演示：👉[查看sitemap.xml](https://nextjs.weijunext.com/sitemap-0.xml)
+
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

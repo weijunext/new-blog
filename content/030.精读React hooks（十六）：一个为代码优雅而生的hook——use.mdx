@@ -1,0 +1,237 @@
+---
+title: 精读React hooks（十六）：一个为代码优雅而生的hook——use
+description: use 是一个能让你的代码更优雅的hook，虽然它还不是一个正式发布的 hook，但这不妨碍我们学习。
+slug: react-hook-use
+slugId: 4a9829b4-64ea-4254-bcf6-a9a2eb9cd131
+tags: React
+date: 2023-09-21
+---
+
+`use` 是 React 官方最新推出的 hook（截止2023.9.21），本文也是《[精读React hook](/tag/React)》系列文章的最后一篇。
+
+截止发文日期，`use` 还是一个预发布的 hook，将来有可能会进行破坏性更新，所以不推荐在生产环境使用。但这不妨碍我们学习，万一过段时间 `use` 转正了呢？
+
+## `use`的使用
+
+`use` 可以让你在函数组件中读取类似于 Promise 或 context 的资源的值。它的基础用法如下：
+
+```jsx
+import { use } from 'react';
+
+function MessageComponent({ messagePromise }) {
+  const message = use(messagePromise);
+  const theme = use(ThemeContext);
+  // ...
+}
+```
+
+`use` 函数的参数是你想要读取的资源，资源可以是 Promise 或 Context（在这个例子中是 `messagePromise` 和 `ThemeContext`），并返回从资源中读取的值。
+
+### `use`解决的问题场景
+
+在过去，React 开发者在处理类似于 Promise 或 Context 的资源时，通常需要将这些资源的值存储在 state 中，然后在组件中通过 props 或 state 来使用这些值。这种方法虽然可行，但是会增加代码的复杂性，并可能导致状态管理的困难。
+
+`use` 这个 hook 解决了这个问题，因为它让你能够直接在组件中调用并获取这些资源的值，这样可以简化代码，使其更易于理解和维护。
+
+想象一个场景，加入你正在开发一个博客应用，这个应用需要从 `API` 获取博客文章的内容，不用 `use` 的时候，你会这么做：
+
+```jsx
+import { useState, useEffect } from 'react';
+
+function BlogPostComponent({ postId }) {
+  const [post, setPost] = useState(null);
+
+  useEffect(() => {
+    fetchPost(postId).then(data => setPost(data));
+  }, [postId]);
+
+  // ...
+}
+```
+
+用上 `use`，就可以这么做：
+
+```jsx
+import { use } from 'react';
+
+function BlogPostComponent({ postId }) {
+  const postPromise = fetchPost(postId);
+  const post = use(postPromise);
+  // ...
+}
+```
+
+在功能上是一样的，但是用了 `use` 明显代码更优雅了。
+
+### `use`用于条件语句和循环中
+
+其他 React hook 不同，`use` 可以在组件里的循环和条件语句中使用。例如：
+
+- 根据博客内容类别，读取不同 Promise
+
+```jsx
+import { use } from 'react';
+
+function ResourceComponent({ resourceType }) {
+  let resource;
+
+  if (resourceType === 'post') {
+    const postPromise = fetchPost();
+    resource = use(postPromise);
+  } else if (resourceType === 'comment') {
+    const commentPromise = fetchComment();
+    resource = use(commentPromise);
+  }
+
+  // ...
+}
+```
+
+- 在组件里读取一个包含多个资源的数组
+
+```jsx
+import { use } from 'react';
+
+function ResourceListComponent({ resourcePromises }) {
+  const resources = resourcePromises.map(resourcePromise => use(resourcePromise));
+
+  // ...
+}
+```
+
+### 将数据从服务器流式传递给客户端
+
+了解 NextJS v13 的同学都知道，在 app router 模式下，你可以在服务端组件里面嵌套客户端组件，而这种方式就能实现把服务端组件获取的数据传递给客户端组件。这是本节要讲述的知识的基础，如果你还不懂这些概念，可以到我的另一篇文章《[NextJS v13服务端组件和客户端组件及最佳实践](/article/nextjs-v13-server-side-and-client-side-components-best-practices)》学习一下。
+
+以下是一个示例，展示了如何在服务器组件中创建一个Promise，并将其作为prop传递给客户端组件：
+
+```jsx
+// 服务器组件
+function ServerComponent({ postId }) {
+  const postPromise = fetchPost(postId);
+  return <ClientComponent postPromise={postPromise} />;
+}
+
+// 客户端组件
+import { use } from 'react';
+
+function ClientComponent({ postPromise }) {
+  const post = use(postPromise);
+  // ...
+}
+```
+
+在 `ClientComponent` 中，我们使用 `use` 这个Hook来读取 `ServerComponent` 传过来的 Promise。
+
+如果不用 `use`，我们也可以在 `ServerComponent` 用 `await` 来完成请求，然后把请求结果通过prop传给 `ClientComponent`，不过 `await` 会在执行完成前阻塞服务端组件的渲染，而使用 `use` 不会影响服务端组件的渲染。
+
+### 处理 rejected Promise
+
+有 Promise 的地方就要提供处理 rejected Promise 的方法。当你使用use的时候，有以下两种方法可以处理 rejected Promise：
+
+#### 1、ErrorBoundary
+
+我们可以用 `ErrorBoundary` 包裹可能出错的组件，如果传递给 `use` 的 Promise rejected 了，将显示 `ErrorBoundary` 的 fallback：
+
+```jsx
+"use client";
+import { use, Suspense } from "react";
+import { ErrorBoundary } from "react-error-boundary";
+
+export function BlogPostComponent() {
+  const postPromise = fetchPost(postId);
+
+  return (
+    <ErrorBoundary fallback={<p>⚠️Something went wrong</p>}>
+      <Suspense fallback={<p>⌛Loading...</p>}>
+        <BlogPostTitle messagePromise={messagePromise} />
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
+
+function BlogPostTitle({ postPromise }) {
+  const post = use(postPromise);
+  // ...
+
+	return <p>Here is the title: {post.title}</p>;
+}
+```
+
+#### 2、Promise.catch
+
+如果你不想用 ，但又想在 rejected 时有值填充，可以使用 Promise 的 `catch` 方法。
+
+```jsx
+"use client";
+import { use, Suspense } from "react";
+import { ErrorBoundary } from "react-error-boundary";
+
+export function BlogPostComponent() {
+const postPromise = fetchPost(postId).catch((error) => {
+    console.error('Failed to fetch post:', error);
+    return 'https://weijunext.com'; // 返回一个默认值
+  });
+
+  return (
+    <Suspense fallback={<p>⌛Loading...</p>}>
+      <BlogPostTitle messagePromise={messagePromise} />
+    </Suspense>
+  );
+}
+```
+
+## 结语
+
+`use` 还只是一个实验性，等它正式转正之后，想必也会成为社区里宣传 React 代码优化之道的一项指南。
+
+## 专栏结语
+
+写完这篇文章，《[👉精读React Hooks》](/tag/React)专栏就算告一段落了。本系列文章讲解了 16 个官方文档里列出来的 hook，其中前面一半在我们日常开发中经常使用，而后面一半其实鲜有使用，这是因为后来发布的 hook 主要面向库或者上层框架的开发者。React 源码里导出的其实还不止这 16 个 hook，这是因为其它 hook 对绝大部分开发者来说是绝无机会使用到的。
+
+本专栏的编写算是我的一条支线任务，完成本专栏的编写后，我会继续回归主线任务——实战项目的经验分享。我的工作和 side project 会用到的核心技术栈有：Next.js、React、Vue、Node，如果你有兴趣一起探讨相关知识，不妨关注一下👉[我的博客](https://weijunext.com)。
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

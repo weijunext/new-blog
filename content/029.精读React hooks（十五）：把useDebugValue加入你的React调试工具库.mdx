@@ -1,0 +1,95 @@
+---
+title: 精读React hooks（十五）：把useDebugValue加入你的React调试工具库
+description: useDebugValue 是一个专为开发者调试自定义 hook 而设计的 React hook，它可以让你的 hook 在 debug 时有更友好的提示。
+slug: react-hook-useDebugValue
+slugId: 01f63502-f459-4615-820d-a992d7322a89
+tags: React
+date: 2023-09-20
+---
+
+`useDebugValue` 是一个专为开发者调试自定义 hook 而设计的 React hook。对于大多数应用开发者来说，可能不会直接使用它，但对于那些需要创建和维护自定义 hooks 的开发者来说，`useDebugValue` 可以提供一个更加友好的显示，帮助开发者更容易地理解该 Hook 的当前状态。
+
+## `useDebugValue`的使用
+
+这是 `useDebugValue` 的用法定义：
+
+```
+useDebugValue(value, format?)
+```
+
+- `value` 是你想在 React 开发工具中显示的值，可以是任何类型
+- `format` 是一个可选参数，它接受一个格式化函数。这个参数的用途是：某些情况下，会存在开销较大的格式化逻辑，为了避免不必要的计算，把格式化逻辑放在 `format`，就可以让这个格式化逻辑只在 DevTools 需要显示这个值的时候才执行。
+
+### 用法示例
+
+在《[精读React hook（十三）：使用useSyncExternalStore获取实时数据](/article/useSyncExternalStore)》中，我们有一个[监听网络状态的演示案例](https://nextjs.weijunext.com/hooks/useSyncExternalStore)，现在我为了调试更科学，想把网络状态也显示在 React 开发工具上面，我在原来的 hook 里添加 `useDebugValue` 就可以：
+
+```
+export function useOnlineStatus() {
+  const isOnline = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  // useDebugValue
+  useDebugValue(isOnline ? "✅ Online(useDebugValue)" : "❌ Disconnected(useDebugValue)")
+  return isOnline;
+}
+```
+
+现在我打开 React 开发工具，可以看到 `useOnlineStatus` 的返回值显示出来了：
+
+![1.png](/assets/029/1.png)
+
+`useDebugValue` 为开发者做的事就是这么简单。你也可以到[👉我的演示站](https://nextjs.weijunext.com/hooks/useSyncExternalStore)验证。
+
+## `useDebugValue`的价值
+
+初看 `useDebugValue` 你会觉得它并没有带来什么价值，其实不然，例如在大型项目中可能会有很多自定义 Hooks，为这些 Hooks 提供清晰的 debug 值可以帮助团队更容易地识别和解决问题；而对于开源的自定义 Hooks，提供这样的 debug 值更是对使用者的友好提示。
+
+总结一下 `useDebugValue` 的主要价值点：
+
+1. 提供清晰的调试信息：当你在 React 开发工具中查看一个组件，如果该组件使用了多个自定义 Hooks，`useDebugValue` 可以帮助你更清晰地理解每个 Hook 的当前状态。这对于追踪和理解组件的行为非常有帮助。
+2. 增强自定义 Hooks 的可用性：如果你创建了一个自定义 Hook 并计划与团队或社区共享，使用 `useDebugValue` 可以使其他开发者更容易地理解和调试使用了你的 Hook 的组件。
+3. 按需计算：`useDebugValue` 可以接受一个格式化函数，这意味着你可以按需计算调试值，避免不必要的计算开销。
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

@@ -11,8 +11,9 @@ export type ProductLink = {
 }
 export type Link = {
   name: string
+  text?: string
   href: string
-  icon: IconType
+  icon?: IconType
 }
 export type ThemeColor = {
   media: string
@@ -27,8 +28,8 @@ export type SiteConfig = {
   creator: string
   ogImage?: string
   headerLinks: Link[]
-  footerLinks: Link[],
-  footerProducts: ProductLink[]
+  footerLinks?: Link[],
+  footerProducts?: ProductLink[]
   metadataBase: URL | string
   themeColors?: string | ThemeColor[]
   defaultNextTheme?: string

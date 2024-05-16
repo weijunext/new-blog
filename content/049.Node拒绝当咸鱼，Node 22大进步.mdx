@@ -1,0 +1,280 @@
+---
+title: Node拒绝当咸鱼，Node 22大进步
+description: Node拒绝当咸鱼，Node 22大进步
+slug: nodejs-22-feature
+tags: Node
+date: 2024-05-08
+---
+
+这几年，deno和bun风头正盛，大有你方唱罢我登场的态势，deno和bun的每一次更新版本，Node都会被拿来比较，比较结果总是Node落后了。
+
+这种比较是不是非常熟悉，就像卖手机的跟iPhone比，卖汽车的跟特斯拉比，比较的时候有时候还得来个「比一分钱硬币还薄」的套路。
+
+![1.png](/assets/049/1.png)
+
+Node虽然没有落后了，但是确实有点压力了，所以20和22版本都大跨步前进，拒绝当咸鱼了。
+
+因为Node官网对22版本特性的介绍太过简单，所以我决定来一篇详细介绍新特性的文章，让学习Node的朋友们知道，Node现在在第几层。
+
+<Aside>
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起学习交流前端和Node端技术
+</Aside>
+
+首先我把新特性分为两类，分别是：开发者可能直接用到的特性、开发者相对无感知的底层更新。本文重点介绍前者，简单介绍后者。先来一个概览：
+
+**开发者可能直接用到的特性**：
+
+1. 支持通过 `require()` 引入ESM
+2. 运行 `package.json` 中的脚本
+3. 监视模式（`--watch`）稳定化
+4. 内置 WebSocket 客户端
+5. 增加流的默认高水位线
+6. 文件模式匹配功能
+
+**开发者相对无感知的底层更新**：
+
+1. V8 引擎升级至 12.4 版本
+2. Maglev 编译器默认启用
+3. 改进 `AbortSignal` 的创建性能
+
+接下来开始介绍。
+
+## 支持通过 `require()` 导入 ESM
+
+以前，我们认为 CommonJS 与 ESM 是分离的。
+
+例如，在 CommonJS里，我们用并使用 `module.exports` 导出模块，用 `require()` 导入模块：
+
+```jsx
+// CommonJS
+
+// math.js
+function add(a, b) {
+  return a + b;
+}
+module.exports.add = add;
+
+// useMath.js
+const math = require('./math');
+console.log(math.add(2, 3));
+```
+
+在 ECMAScript Modules (ESM) 里，我们使用 `export` 导出模块，用 `import` 导入模块：
+
+```jsx
+// ESM
+
+// math.mjs
+export function add(a, b) {
+  return a + b;
+}
+
+// useMath.js
+import { add } from './math.mjs';
+console.log(add(2, 3));
+```
+
+Node 22 支持新的方式——用 `require()` 导入 ESM：
+
+```jsx
+// Node 22
+
+// math.mjs
+export function add(a, b) {
+  return a + b;
+}
+
+// useMath.js
+const { add } = require('./mathModule.mjs');
+console.log(add(2, 3));
+```
+
+这么设计的原因是为了给大型项目和遗留系统提供一个平滑过渡的方案，因为这类项目难以快速全部迁移到 ESM，通过允许 `require()` 导入 ESM，开发者就可以逐个模块迁移，而不是一次性对整个项目进行修改。
+
+目前这种写法还是实验性功能，所以使用是有“门槛”的：
+
+- 启动命令需要添加 `-experimental-require-module` 参数，如：`node --experimental-require-module app.js`
+- 模块标记：确保 ESM 模块通过 `package.json` 中的 `"type": "module"` 或文件扩展名是 `.mjs`。
+- 完全同步：只有完全同步的ESM才能被 `require()` 导入，任何含有顶级 `await` 的ESM都不能使用这种方式加载。
+
+## 运行`package.json`中的脚本
+
+假设我们的 `package.json` 里有一个脚本：
+
+```json
+"scripts": {
+  "test": "jest"
+}
+```
+
+在此之前，我们必须依赖 npm 或者 yanr 这样的包管理器来执行命令，比如：`npm run test`。
+
+Node 22 添加了一个新命令行标志 `--run`，允许直接从命令行执行 `package.json` 中定义的脚本，可以直接使用 `node --run test` 这样的命令来运行脚本。
+
+刚开始我还疑惑这是不是脱裤子放屁的行为，因为有 node 的地方一般都有 npm，我要这 `node —run` 有何用？
+
+后来思考了一下，主要原因应该还是统一运行环境和提升性能。不同的包管理器在处理脚本时可能会有微小的差异，Node 提供一个标准化的方式执行脚本，有助于统一这些行为；而且直接使用 node 执行脚本要比通过 npm 执行脚本更快，因为绕过了 npm 这个中间层。
+
+## 监视模式（`--watch`）稳定化
+
+在 19 版本里，Node 引入了 `—watch` 指令，用于监视文件系统的变动，并自动重启。22 版本开始，这个指令成为稳定功能了。
+
+要启用监视模式，只需要在启动 Node 应用时加上 `--watch` 参数。例如：
+
+```bash
+node --watch app.js
+```
+
+正在用 nodemon 做自动重启的朋友们可以正式转战 `--watch` 了～
+
+## 内置 WebSocket 客户端
+
+以前，要用 Node 开发一个 socket 服务，必须使用 ws、socket.io 这样的第三方库来实现。第三方库虽然稳如老狗帮助开发者许多年，但是终究是有点不方便。
+
+Node 22 正式内置了 WebSocket，并且属于稳定功能，不再需要 `-experimental-websocket` 来启用了。
+
+除此之外，WebScoket 的实现还遵循了浏览器中 WebSocket API 的标准，这意味着在 Node 中使用 WebSocket 的方式将与在 JavaScript 中使用 WebSocket 的方式非常相似，有助于减少学习成本并提高代码的一致性。
+
+用法示例：
+
+```jsx
+const socket = new WebSocket("ws://localhost:8080");
+ 
+socket.addEventListener("open", (event) => {
+  socket.send("Hello Server!");
+});
+```
+
+## 增加流（streams）的默认高水位线（High Water Mark）
+
+streams 在 Node 中有举足轻重的作用，读写数据都得要 streams 来完成。而 streams 可以设置 `highWaterMark` 参数，用于表示缓冲区的大小。`highWaterMark` 越大，缓冲区越大，占用内存越多，I/O 操作就减少，`highWaterMark` 越小，其他信息也对应相反。
+
+用法如下：
+
+```jsx
+const fs = require('fs');
+
+const readStream = fs.createReadStream('example-large-file.txt', {
+  highWaterMark: 1024 * 1024  // 设置高水位线为1MB
+});
+
+readStream.on('data', (chunk) => {
+  console.log(`Received chunk of size: ${chunk.length}`);
+});
+
+readStream.on('end', () => {
+  console.log('End of file has been reached.');
+});
+```
+
+虽然 `highWaterMark` 是可配置的，但通常情况下，我们是使用默认值。在以前的版本里，`highWaterMark` 的默认值是 16k，Node 22 版本开始，默认值被提升到 64k 了。
+
+## 文件模式匹配——glob 和 globSync
+
+Node 22 版本在 fs 模块中新增了 `glob` 和 `globSync` 函数，它们用于根据指定模式匹配文件路径。
+
+文件模式匹配允许开发者定义一个匹配模式，以找出符合特定规则的文件路径集合。模式定义通常包括通配符，如 `*`（匹配任何字符）和 `?`（匹配单个字符），以及其他特定的模式字符。
+
+### glob 函数（异步）
+
+`glob` 函数是一个异步的函数，它不会阻塞 Node.js 的事件循环。这意味着它在搜索文件时不会停止其他代码的执行。`glob` 函数的基本用法如下：
+
+```jsx
+const { glob } = require('fs');
+
+glob('**/*.js', (err, files) => {
+  if (err) {
+    throw err;
+  }
+  console.log(files); // 输出所有匹配的.js文件路径
+});
+```
+
+在这个示例中，`glob` 函数用来查找所有子目录中以 `.js` 结尾的文件。它接受两个参数：
+
+- 第一个参数是一个字符串，表示文件匹配模式。
+- 第二个参数是一个回调函数，当文件搜索完成后，这个函数会被调用。如果搜索成功，`err` 将为 `null`，而 `files` 将包含一个包含所有匹配文件路径的数组。
+
+### globSync 函数（同步）
+
+`globSync` 是 `glob` 的同步版本，它会阻塞事件循环，直到所有匹配的文件都被找到。这使得代码更简单，但在处理大量文件或在需要高响应性的应用中可能会导致性能问题。其基本用法如下：
+
+```jsx
+const { globSync } = require('fs');
+
+const files = globSync('**/*.js');
+console.log(files); // 同样输出所有匹配的.js文件路径
+
+```
+
+这个函数直接返回匹配的文件数组，适用于脚本和简单的应用，其中执行速度不是主要关注点。
+
+### 使用场景
+
+这两个函数适用于：
+
+- 自动化构建过程，如自动寻找和处理项目中的 JavaScript 文件。
+- 开发工具和脚本，需要对项目目录中的文件进行批量操作。
+- 任何需要从大量文件中快速筛选出符合特定模式的文件集的应用。
+
+V8 引擎升级至 12.4 版本
+
+从这一节开始，我们了解一下开发者相对无感知的底层更新，第一个就是 V8 引擎升级到 12.4 版本了，有了以下特性升级：
+
+- WebAssembly 垃圾回收：这一特性将改善 WebAssembly 在内存管理方面的能力。
+- Array.fromAsync：这个新方法允许从异步迭代器创建数组。
+- Set 方法和迭代器帮助程序：提供了更多内建的Set操作和迭代器操作的方法，增强了数据结构的操作性和灵活性。
+
+## Maglev 编译器默认启用
+
+Maglev 是 V8 的新编译器，现在在支持的架构上默认启用。它主要针对短生命周期的命令行程序（CLI程序）性能进行优化，通过改进JIT（即时编译）的效率来提升性能。这对开发者编写的工具和脚本将带来明显的速度提升。
+
+### 改进`AbortSignal`的创建性能
+
+在这次更新中，Node 提高了 `AbortSignal` 实例的创建效率。`AbortSignal` 是用于中断正在进行的操作（如网络请求或任何长时间运行的异步任务）的一种机制。通过提升这一过程的效率，可以加快任何依赖这一功能的应用，如使用 `fetch` 进行HTTP请求或在测试运行器中处理中断的场景。
+
+`AbortSignal` 的工作方式是通过 `AbortController` 实例来管理。`AbortController` 提供一个 `signal` 属性和一个 `abort()` 方法。`signal` 属性返回一个 `AbortSignal` 对象，可以传递给任何接受 `AbortSignal` 的API（如`fetch`）来监听取消事件。当调用`abort()`方法时，与该控制器关联的所有操作将被取消。
+
+```jsx
+const controller = new AbortController();
+const signal = controller.signal;
+
+fetch(url, { signal })
+  .then(response => response.json())
+  .catch(err => {
+    if (err.name === 'AbortError') {
+      console.log('Fetch aborted');
+    } else {
+      console.error('Fetch error:', err);
+    }
+  });
+
+// 取消请求
+controller.abort();
+```
+
+## 总结
+
+最后，我只替 Node 说一句：Node 没有这么容易被 deno 和 bun 打败～
+
+![3.jpeg](/assets/049/3.jpeg)
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

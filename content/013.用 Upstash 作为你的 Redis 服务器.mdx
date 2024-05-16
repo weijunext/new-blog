@@ -1,0 +1,132 @@
+---
+title: 用 Upstash 作为你的 Redis 服务器
+description: 又有一个省心省事的工具了，个人项目开发如果觉得自己安装维护 Redis 很麻烦，那么你应该试试这个免费的第三方 Redis 托管平台——Upstash。
+slug: using-upstash-as-redis-server
+slugId: 6510121c-90da-4d20-85a1-72cbbdb3983b
+tags: NextJS,NextJS实战,Redis
+date: 2023-08-30
+---
+
+本文继续我们的实战教程（[源码](https://github.com/weijunext/nextjs-learn-demos)），今天给大家推荐一个免费的 Redis 服务器，它叫 Upstash。
+
+如果你正在开发个人产品，那么请忘掉 Redis 的配置和各种安全措施，用 Upstash，什么 RDB 和 AOF、雪崩和击穿、密码和权限，这些 Upstash 会帮你搞定，你只需要关注你要实现的功能。
+
+本文假定你已了解 Redis 的基本概念，阅读完本文，你将学习到：
+
+- 创建一个 Upstash 的 Redis 数据库
+- NextJS 服务端组件和 Redis 交互
+
+## 创建 Redis 数据库
+
+万事开头需注册，请到 https://upstash.com/ 注册登录，开始咱们的教程。
+
+首次进入后台，看到的是这样的界面
+
+![1.png](/assets/013/1.png)
+
+创建 Redis 数据库
+
+![2.png](/assets/013/2.png)
+
+稍等片刻就创建完成了，Redis 信息一览无余。
+
+![3.png](/assets/013/3.png)
+
+这种方式创建Redis，相信要比我们手动在本地安装Redis、分配db要流畅的多吧。下面进入正题，NextJS中 怎么使用 Upstash 的 Redis。
+
+## 服务端组件调用
+
+先安装依赖
+
+```bash
+yarn add @upstash/redis
+```
+
+实际项目中，我们会在多个地方使用redis，所以应该把redis配置写到lib里，方便调用
+
+```tsx
+// @/lib/redis.ts
+
+import { Redis } from '@upstash/redis'
+
+const redis = new Redis({
+  url: `${process.env.UPSTASH_REDIS_REST_URL}`,
+  token: `${process.env.UPSTASH_REDIS_REST_TOKEN}`,
+})
+
+export default redis
+```
+
+在服务端组件中直接和 redis 交互
+
+```tsx
+// @/app/pages.tsx
+
+……
+import redis from "@/lib/redis";
+
+export default async function Home() {
+……
+	await redis.incr("view");
+	const view = await redis.get("view")
+
+	return (
+		<>
+			……
+				<span className="flex max-w-fit items-center justify-center space-x-2 rounded-full border border-gray-300 bg-white px-5 py-2 text-sm text-gray-600 shadow-md transition-colors hover:border-gray-800">
+          <TablerEyeFilled />
+          <p>
+            <span className="hidden sm:inline-block">Page Views</span>{" "}
+            <span className="font-semibold">{nFormatter(view)}</span>
+          </p>
+        </span>
+			……
+		</>
+	) 
+
+……
+}
+```
+
+如果你疑惑为什么组件内可以直接调用redis，那么请看我的过往文章：
+
+- **[NextJS v13 的渲染机制有什么不同？](/article/nextjs-v13-rendering)**
+- **[NextJS v13服务端组件和客户端组件及最佳实践](/article/nextjs-v13-server-side-and-client-side-components-best-practices)**
+
+从 demo 中可以知道，Upstash 的 redis 命令和 Node开发者熟悉的 ioredis 几乎一样，所以 Upstash 使用起来不会有任何心理门槛。
+
+我们看看控制台，确认 redis 是否被正确操作了：
+
+![4.png](/assets/013/4.png)
+
+当我们刷新几次页面后，在 Usage 页卡下可以看到命令调用次数；
+
+![5.png](/assets/013/5.png)
+
+在 Data Browser 可以看到 Redis 里的所有数据。
+
+再看页面，数据和控制台相符，说明以上代码没有问题。
+
+![6.png](/assets/013/6.png)
+
+## 结语
+
+Upstash 这样的第三方托管平台，比较适合个人开发者的个人项目使用，它能够让你最轻量又安全地用上 Redis，你要做的只是学习常用的 Redis 的命令。
+
+## 源码与演示
+
+源码：👉[Upstash](https://github.com/weijunext/nextjs-learn-demos/tree/Upstash)
+
+在线演示：👉[Upstash记录网站首页访问量](https://nextjs.weijunext.com/)
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

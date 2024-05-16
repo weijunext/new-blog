@@ -1,0 +1,395 @@
+---
+title: 精读React hooks（七）：用useMemo来减少性能开销
+description: 为了更好地满足开发者对于细粒度性能控制的需求，React推出了useMemo这一Hook，允许我们针对复杂的计算进行精细化的优化，从而避免不必要的渲染重复。
+slug: react-hook-useMemo
+slugId: 75704b53-4f6d-45db-a73b-f0cd6ce90ce9
+tags: React
+date: 2023-09-10
+---
+
+在前端框架的激烈竞争中，性能往往被视为评判一个框架好坏的关键指标。拥有卓越性能的框架可以为开发者在面对数据密集或高度交互的应用时，提供更加流畅、高效的开发体验。
+
+为了更好地满足开发者对于细粒度性能控制的需求，React推出了`useMemo`这一Hook。这个工具为我们在函数组件内部提供了一个优雅的手段，允许我们针对复杂的计算进行精细化的优化，从而避免不必要的渲染重复。接下来的文章，我们将深入探讨`useMemo`的定义、使用方法以及如何在日常开发中最大化地发挥其潜力。
+
+## `useMemo`定义
+
+`useMemo`是React框架中的一个重要Hook，它的核心目的是通过缓存计算结果，避免在组件渲染时进行不必要的重复计算，从而优化性能。这意味着只有当其依赖项发生变化时，`useMemo`才会重新计算这个值，否则它将重用之前的结果。
+
+它的基本使用格式如下：
+
+```jsx
+const cachedValue = useMemo(calculateValue, dependencies)
+```
+
+- `calculateValue`：这是一个用于计算我们想要缓存的值的函数。为了确保结果的稳定性和预测性，这个函数应该是一个纯函数。这意味着，它在相同的输入下总是返回相同的输出，并且没有任何副作用。
+- `dependencies`：这是一个数组，包含`useMemo`所依赖的变量或值。当数组中的任何值发生变化时，`calculateValue`函数将被重新执行。
+
+## `useMemo`基础用法
+
+`useMemo` 接受两个参数：一个函数和一个依赖项数组。
+
+```jsx
+const memoizedValue = useMemo(() => computeExpensiveValue(a, b), [a, b]);
+```
+
+在上面的例子中，`computeExpensiveValue`是一个可能需要很长时间来计算的函数。我们只有当`a`或`b`改变时，才重新调用这个函数。否则，我们会使用之前缓存的值。
+
+用一个例子来看useMemo的执行时机：
+
+```jsx
+import React, { useMemo, useState } from "react";
+
+function filterUsers(users, searchTerm) {
+    return users.filter((user) => user.name.includes(searchTerm));
+}
+
+function useMemoDemo() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDark, setIsDark] = useState(false);
+
+  const allUsers = useMemo(() => {
+    let list = [];
+    for (let i = 1; i <= 500; i++) {
+      list.push({ id: i, name: `User${i}` });
+    }
+    return list;
+  }, []);
+
+  const useMemoCurrentUsers = useMemo(() => {
+    console.log('with useMemo')
+    return filterUsers(allUsers, searchTerm);
+  }, [allUsers, searchTerm]);
+
+  return (
+    <div>
+      {/* 每一次更改查询框内容，都会触发useMemo */}
+      <input
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        placeholder="Search by name..."
+      />
+
+      {/* 每一次更改背景色，都不会触发useMemo */}
+      <button onClick={() => setIsDark((pre) => !pre)}>
+        {isDark ? "Dark mode" : "Light mode"}
+      </button>
+
+      <div>
+        <div>
+          <h2>With useMemo</h2>
+          <div style={{ background: isDark ? "#000" : "" }}>
+            {useMemoCurrentUsers.map((user) => (
+              <div key={user.id}>
+                {user.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+  </div>
+  );
+}
+
+export default useMemoDemo;
+```
+
+在这里简单的示例中，每次修改查询框的内容，都会触发`searchTerm`的变化，进而触发`useMemo`重新计算；而点击切换背景色的按钮，因为`useMemo`的依赖项没有更新，所以不会触发`useMemo`重新计算，而是直接使用上一次计算的返回值。
+
+## 是否使用`useMemo`的区别
+
+使用 **`useMemo`** 与否，究竟有何差异？很遗憾，得益于高效的现代 JavaScript 引擎和优秀的浏览器性能，大多数场景下，我们用肉眼几乎无法看出来区别。例如下面这个示例，你也可以到[我的演示站](https://nextjs.weijunext.com/hooks/useMemo)体验。
+
+```jsx
+import React, { useMemo, useState } from "react";
+
+function filterUsers(users, searchTerm) {
+    return users.filter((user) => user.name.includes(searchTerm));
+}
+
+function Comparison1() {
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isDark, setIsDark] = useState(false);
+
+  const allUsers = useMemo(() => {
+    let list = [];
+    for (let i = 1; i <= 500; i++) {
+      list.push({ id: i, name: `User${i}` });
+    }
+    return list;
+  }, []);
+
+  const useMemoCurrentUsers = useMemo(() => {
+    console.log('with useMemo')
+    return filterUsers(allUsers, searchTerm);
+  }, [allUsers, searchTerm]);
+
+  console.log('without useMemo')
+  const withoutUseMemoCurrentUsers = filterUsers(allUsers, searchTerm);
+
+  return (
+    <div>
+      <input
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        placeholder="Search by name..."
+      />
+
+      <button onClick={() => setIsDark((pre) => !pre)}>
+        {isDark ? "Dark mode" : "Light mode"}
+      </button>
+
+      <div>
+        <div>
+          <h2>With useMemo</h2>
+          <div style={{ background: isDark ? "#000" : "" }}>
+            {useMemoCurrentUsers.map((user) => (
+              <div key={user.id}>
+                {user.name}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h2>Without useMemo</h2>
+            <div style={{ background: isDark ? "#000" : "" }}>
+              {withoutUseMemoCurrentUsers.map((user) => (
+                <div key={user.id}>
+                  {user.name}
+                </div>
+              ))}
+            </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default Comparison1;
+```
+
+这个示例实际效果是无论你修改查询框内容还是切换背景色，对照组的变化几乎是同步的。
+
+既然`useMemo`无法带来视觉上的差异，我们为什么还要使用`useMemo`？因为`useMemo`的可以在更细粒度的层面优化我们的应用性能：
+
+1. **重新计算的开销**：
+    
+    当我们面对涉及大量数据处理、循环或其他复杂逻辑的场景时，重复不必要的计算可能会导致浏览器的卡顿，从而影响用户体验。
+    
+2. **渲染的开销**：
+    
+    当我们谈论 React 性能时，经常考虑的不仅仅是计算的速度，但更重要的是避免不必要的渲染。如果某个子组件依赖于一个对象或数组，并且这个对象或数组在每次父组件渲染时都重新创建，即使实际的数据没有改变，那么子组件也会不必要地重新渲染。
+    
+    在这种情况下，`useMemo`可以帮助我们确保对象或数组的引用在数据不变时保持不变，从而避免子组件的不必要渲染。
+    
+
+打开浏览器控制台，我们可以看到页面首次渲染时，`useMemoCurrentUsers`和`withoutUseMemoCurrentUsers`都有进行计算，但是点击切换背景的按钮时，`useMemoCurrentUsers`没有重新计算，而`withoutUseMemoCurrentUsers`是每次都重新计算的。这恰好印证了上面所说的“节省渲染开销”。
+
+![541shots_so.png](/assets/021/useMemo_demo.png)
+
+## 缓存组件
+
+`useMemo`的作用不知局限于缓存数据，它还可以缓存组件。
+
+如果你在渲染某个组件时有昂贵的计算，并且你想在某些依赖未改变时避免这些计算，那么也可以使用`useMemo`来缓存这个组件。用法如下：
+
+```jsx
+function ParentComponent(props) {
+  const [someData, setSomeData] = useState(initialData);
+
+  const MemoizedExpensiveComponent = useMemo(() => {
+    return <ExpensiveComponent data={someData} />;
+  }, [someData]);
+
+  return (
+    <div>
+      {MemoizedExpensiveComponent}
+      {/* 其他组件和逻辑 */}
+    </div>
+  );
+}
+```
+
+如果上一节的示例，我们想把用户列表的组件缓存起来，可以这么做：
+
+```jsx
+function UserList({ allUsers, searchTerm }) {
+  const filteredUsers = filterUsers(allUsers, searchTerm);
+  return (
+    <>
+      {useMemoCurrentUsers.map((user) => (
+        <div key={user.id}>
+          {user.name}
+        </div>
+      ))}
+    </>
+  );
+}
+
+function Comparison1() {
+  // ……
+
+  const MemoizedUserList = useMemo(() => {
+    return <UserList allUsers={allUsers} searchTerm={searchTerm} />;
+  }, [allUsers, searchTerm]);
+
+  return (
+    <div>
+      {/* …… */}
+        <h2>With useMemo</h2>
+        <div style={{ background: isDark ? "#000" : "" }}>
+          {MemoizedUserList}
+        </div>
+      {/* …… */}
+    </div>
+  );
+}
+
+export default Comparison1;
+```
+
+现在，整个`UserList`组件被缓存，只有当`allUsers`、`searchTerm`或`isDark`发生变化时，才会重新计算。
+
+除了`useMemo`能够缓存组件，React 还提供了`memo`这个高阶组件来完成相似的工作。
+
+```jsx
+const UserList = memo(function UserList({ allUsers, searchTerm }) {
+  const filteredUsers = filterUsers(allUsers, searchTerm);
+  return (
+    <>
+      {filteredUsers.map((user) => (
+        <div key={user.id}>
+          {user.name}
+        </div>
+      ))}
+    </>
+  );
+});
+
+function Comparison1() {
+  // ……
+
+  return (
+    <div>
+      {/* …… */}
+      <h2>With useMemo</h2>
+        <div style={{ background: isDark ? "#000" : "" }}>
+          <UserList allUsers={allUsers} searchTerm={searchTerm} />
+        </div>
+      {/* …… */}
+    </div>
+  );
+}
+
+export default Comparison1;
+```
+
+使用`memo`高阶组件包裹后，只有当`props`发生变化时重新渲染。这种方式和上面使用`useMemo`缓存组件的作用是一样的，但代码可读性更强，也是React官方更推荐的方式。
+
+考虑到`useMemo`和`memo`的特点，我们可以这么说：
+
+- 当你想避免因为**数据变化**而产生的不必要的**计算**时，使用**`useMemo`；**
+- 当你想避免因为**props未变**而产生的不必要的**组件重渲染**时，使用**`memo`**。
+
+有无使用`memo`的效果对比也可以在[我的演示站](https://nextjs.weijunext.com/hooks/useMemo)体验。
+
+## 缓存函数
+
+除了缓存数据和组件，`useMemo`还能够缓存函数。你只需要在`useMemo`里`return`一个函数即可，如下：
+
+```jsx
+const handleUserClick = useMemo(() => {
+  return (userName) => {
+    alert(`Clicked on: ${userName}`);
+  };
+}, []);
+```
+
+不过，React有专门缓存函数的hook——useCallback，也是下一篇文章要精读的hook，所以这里就不展开说了。
+
+## 反例：过渡优化
+
+`useMemo`是用于优化的工具，但有时，如果过度使用它们，可能会导致性能更差或代码更加复杂。下面看一个过度优化的例子：
+
+想象这个场景，我们有一个简单的组件，只显示一个数字和一个按钮，点击按钮会增加这个数字。
+
+```jsx
+import React, { useState, useMemo } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  const handleIncrease = useMemo(() => {
+    return () => {
+      setCount(count + 1);
+    };
+  }, [count]);
+
+  return (
+    <div>
+      <div>{count}</div>
+      <button onClick={handleIncrease}>Increase</button>
+    </div>
+  );
+}
+
+export default Counter;
+```
+
+这里的问题是：
+
+1. **不必要的复杂性**：原始的组件是简单的，并且性能表现得很好。引入`useMemo`只是增加了代码的复杂性，而并没有带来任何实际的性能提升。
+2. **增加了性能开销**：**`useMemo`本身**也有开销。在这种情况下，任何由`useMemo`带来的小优势都被其自身的开销抵消了，因为每次`count`变化，`handleIncrease`都会重新计算。
+3. **可读性下降**：对于后来查看代码的其他开发者来说，看到`useMemo`可能会引起困惑。他们可能会花费时间思考为什么这里需要优化，尽管实际上并不需要。
+
+综上所述，不是所有的组件都需要优化，特别是当它们已经足够简单和高效的时候。过度使用优化工具可能会导致更差的性能和更低的代码可读性。
+
+## 结语
+
+使用`useMemo`的关键是权衡。其目的是避免不必要的计算，但也要注意不要滥用，因为维持这些缓存值也是有开销的。最佳的做法是先写出清晰和可读的代码，然后在性能瓶颈出现时，再考虑优化。
+
+本文对照示例均可在[我的演示站](https://nextjs.weijunext.com/hooks/useMemo)体验，TypeScript版源码在[我的Github](https://github.com/weijunext/nextjs-learn-demos/tree/useMemo)查看
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

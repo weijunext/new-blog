@@ -16,6 +16,7 @@ export const doSearch = async (value: string): Promise<SearchResult[]> => {
   // 使用 sectionIndex 执行搜索,并返回结果
   // Use sectionIndex to perform the search and return the results
   const results: SimpleDocumentSearchResultSetUnit[] = await sectionIndex.search(value, { enrich: true, suggest: true });
+  // console.log('doSearch', value, results);
 
   // 转换搜索结果
   // Transform the search results

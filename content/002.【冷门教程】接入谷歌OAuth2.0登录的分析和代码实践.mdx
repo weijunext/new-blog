@@ -1,0 +1,524 @@
+---
+title: 【冷门教程】接入谷歌OAuth2.0登录的分析和代码实践
+description: 写这篇文章的目的是抹平谷歌OAuth2.0开发的信息差，跟随文章的思路，你只需要半个小时就能完成自己的谷歌授权登录功能。
+slug: integrate-google-oauth2-2
+slugId: 485132d1-31bd-4cb5-9fbc-576fb64d5ae9
+tags: 登录,谷歌开发
+date: 2023-07-05
+---
+
+本文需结合系列文章第一篇《[谷歌OAuth2.0开发的正确配置步骤](/article/integrate-google-oauth2-1) 》食用。
+
+## 背景
+
+最近开始摸索出海产品的方案，于是就想在现有产品上做试验，我现有的服务结构是这样的：
+
+![0.png](/assets/002/0.png)
+
+一个公共服务器负责公共模块，不同产品有自己的业务服务器和客户端。搭个公共服务器的主要好处有两点，第一是通用功能可以一次开发，重复利用，（如：第三方登录、内容安全审核）；第二是可以方便共享数据（如：IP黑名单）。
+
+说回开发出海产品，登录功能是第一要务，我的网站原本已支持微信和github的oauth2.0登录，心想公共服务圈再加个谷歌登录岂不是轻而易举？
+
+然而问题出现了，我的服务器是腾讯云的国内服务器，根本无法访问谷歌的API。经过一番尝试后，我发现腾讯云国内服务器可以调用腾讯云国外节点的serverless应用。
+
+那么本次做试验的技术组合就确定了：现有产品的业务服务器 + 腾讯云serverless + 谷歌API。
+
+根据预研技术的习惯，要自下而上推进，那么就要先研究清楚谷歌API的请求流程。
+
+## 谷歌OAuth2.0
+
+该说不说，谷歌API文档写得真烂，花了一天多，在谷歌API文档、搜索引擎、stackoverflow多方检索下才找齐正确的文档。
+
+在开始调用API之前，请先查看**后台配置**：[谷歌OAuth2.0开发的正确配置步骤](/article/integrate-google-oauth2-1)
+
+现在，让我们顺着~~网线~~OAuth2.0的思路一步步扒开谷歌授权登录的真面目。
+
+### 第一步，获取授权URL
+
+根据谷歌 [Google Web 授权文档](https://developers.google.com/identity/protocols/oauth2/web-server?hl=zh-cn#httprest)，可知获取授权URL的请求是这样：
+
+```
+请求方法：Get
+接口地址: <https://accounts.google.com/o/oauth2/v2/auth>
+必填参数：
+    client_id：你在后台获取的client_id
+    redirect_uri：你在后台配置的回调url，建议encodeURIComponent转换
+    response_type：web授权固定填code
+    scope：你在后台配置的scope，如果有多个，要用空格隔开（不是逗号），建议encodeURIComponent转换
+```
+
+拼接出来的请求地址：
+
+`https://accounts.google.com/o/oauth2/v2/auth?client_id=YOUR_CLIENT_ID&redirect_uri=YOUR_REDIRECT_URI&scope=YOUR_SCOPE&response_type=code`
+
+### 进入授权界面
+
+在浏览器打开，能看到这个界面（这个就叫同意屏幕）就说明URL正确
+
+![1.jpeg](/assets/002/1.jpeg)
+
+如果缺少必填参数，或者参数有误，同意屏幕会显示错误code， 到[文档页](https://developers.google.com/identity/protocols/oauth2/web-server?hl=zh-cn#userconsentprompt) 查一下是什么原因，然后改正就好了。
+
+授权登录后，会重定向到你的回调地址，如：
+
+```
+<http://localhost:3000/user/login?code=GOOGLE_RESPONSE_CODE&scope=YOUR_SCOPE&authuser=0&prompt=consent>
+
+code是谷歌生成的，用于换取token
+scope是你传的scope，原样返回了
+authuser和prompt没有用，忽略
+```
+
+### 换取token
+
+根据[文档](https://developers.google.com/identity/protocols/oauth2/web-server?hl=zh-cn#exchange-authorization-code)可知，换取token的请求如下：
+
+```
+请求方法：POST
+请求地址: <https://oauth2.googleapis.com/token>
+Content-Type: application/x-www-form-urlencoded
+
+请求参数：
+    code：上一步获取的 code
+    client_id：你在后台获取的 client_id
+    client_secret：你在后台获取的 client_secret
+    redirect_uri：你在后台配置的回调地址
+    grant_type：固定填authorization_code
+```
+
+我们在postman试一下，
+
+![2.png](/assets/002/2.png)
+
+为什么报错了？根据提示描述分析，应该是code有问题。
+
+我的code是从重定向回来的地址上复制的，不可能有错误。
+
+定睛一看，code里有个%2F，这不是斜杠吗？改成斜杠试试
+
+![3.png](/assets/002/3.png)
+
+果然成功了，这里实际返回字段和谷歌文档里写的并不一样，这里的`id_token`是用户信息加密后的密文，所以只要解密id_token就能获得用户信息，执行登录逻辑了。
+
+node中解密`id_token`使用`jwt-decode`
+
+```
+    const googleUserInfo = jwt_decode(result.tokens.id_token);
+```
+
+我截图出来code都不打码，我不怕被人盗用吗？我们在postman再次提交请求看看
+
+![4.png](/assets/002/4.png)
+
+失败了，因为code仅一次有效。
+
+到这里我们已经把谷歌登录流程梳理清楚了，你完全可以根据自己的开发习惯去完成自己的服务端代码。但是，如果你想继续学习serverless应用开发部署，甚至想复制点代码，那请继续阅读。
+
+## 创建腾讯serverless应用
+
+使用云函数或者serverless本身就是追求短平快，所以这里serverless应用的开发也就要求简单高效，而不是完善的应用配置等。
+
+首先，你得找到腾讯serverless的入口：[腾讯云 Serverless](https://cloud.tencent.com/login?s_url=https%3A%2F%2Fconsole.cloud.tencent.com%2Fsls)
+
+开始创建应用
+
+![5.png](/assets/002/5.png)
+
+要短平快，当然选择Koa模板
+
+![6.png](/assets/002/6.png)
+
+根据页面提示填一下基本信息，区域一定要选择非内地地区，完成后就会看到你创建的serverless应用的信息
+
+![7.png](/assets/002/7.png)
+
+点“开发部署”，最快的做法就是下载项目模板，然后修改，所以我下载了
+
+![8.png](/assets/002/8.png)
+
+然后打开下载的项目，准备开发
+
+## 加点基础代码
+
+敲代码也是个千人千面的活，模板当然够用了，但是为了更省事，我们还得加点自己的代码，提升一下开发体验。
+
+修改代码前，我们先看一下模板的目录结构
+
+![9.png](/assets/002/9.png)
+
+### 自动注册路由
+
+这个serverless会有多个接口，所以我们写一个自动注册路由。
+
+在根目录创建routes文件夹，放一个test.js，这个文件测试完后可以删掉
+
+```jsx
+const router = require('koa-router')();
+
+router.prefix('/api');
+
+router.post('/test1', async (ctx, next) => {
+  const { } = ctx.request.body;
+  const result = 'test1';
+  ctx.body = result;
+});
+
+router.get('/test2', async (ctx, next) => {
+  const { } = ctx.request.query;
+  const result = 'test2';
+  ctx.body = result;
+});
+
+module.exports = router;
+```
+
+app.js写一个自动注册路由的方法
+
+```jsx
+
+…… 其它代码
+
+/* 注册路由 */
+const registerRouters = path => {
+  let files = fs.readdirSync(path);
+  files.forEach(file_name => {
+    let file_dir = path + '/' + file_name;
+    let file_stat = fs.statSync(file_dir);
+    if (file_stat.isDirectory()) {
+      registerRouters(file_dir);
+    }
+    if (file_stat.isFile()) {
+      let router = require(file_dir);
+      for (let i = 0; i < router.stack.length; i++) {
+        const path = router.stack[i].path;
+        app.use(router.routes(), router.allowedMethods());
+        console.log('已注册 ' + path);
+      }
+    }
+  });
+};
+registerRouters('./routes');
+
+// listen 一定要放在最后
+app.listen(9000, () => {
+  console.log(`Server start on http://localhost:9000`);
+})
+```
+
+`node app.js`启动服务，可以看到确实自动注册了
+
+![10.png](/assets/002/10.png)
+
+## 添加环境变量配置
+
+先安装依赖：
+
+```bash
+npm i dotenv -S
+```
+
+依次创建三个配置文件：
+
+```bash
+.env.development：开发环境配置
+.env.production：生产环境配置
+.env：公共配置
+```
+
+Koa环境变量优先级是先找当前环境的配置文件，如果没有就到.env里继续找，所以开发环境和生产环境一样的配置写在.env文件里统一维护就可以了
+
+三个文件需要写入的配置如下：
+
+```bash
+// .env.development
+
+GOOGLE_LOGIN_REDIRECT_URL=你的本地回调地址，要和后台配置的对应
+```
+
+```bash
+// .env.production
+
+GOOGLE_LOGIN_REDIRECT_URL=你的生产回调地址，要和后台配置的对应
+```
+
+```bash
+// .env 公共环境变量
+
+GOOGLE_CLIENT_ID=填写你自己的
+GOOGLE_SECRET=填写你自己的
+
+GOOGLE_OAUTH_URL=https://oauth2.googleapis.com/token
+GOOGLE_GRANT_TYPE=authorization_code
+GOOGLE_GET_USERINFO_FULL_URL=https://www.googleapis.com/oauth2/v3/userinfo
+GOOGLE_SCOPE=https://www.googleapis.com/auth/userinfo.email,<https://www.googleapis.com/auth/userinfo.profile,openid>
+```
+
+app.js里添加环境变量判断
+
+```jsx
+const dotenv = require("dotenv");
+
+const env = process.env.NODE_ENV || 'development';
+dotenv.config({ path: path.join(__dirname, `.env.${env}`) });
+dotenv.config({ path: path.join(__dirname, `.env`) });
+```
+
+package.json里修改启动命令
+
+```json
+  "scripts": {
+    "start": "NODE_ENV=production node app.js",
+    "dev": "NODE_ENV=development app.js"
+  },
+```
+
+现在执行不同启动命令，把`process.env.NODE_ENV`打印出来就可以看到区别了。
+
+### 热更新
+
+没有热更新的服务开发是没有灵魂的，按步骤来：
+
+安装nodemon
+
+```bash
+npm i nodemon -D
+```
+
+修改启动命令：
+
+```json
+  "scripts": {
+    "start": "NODE_ENV=production node app.js",
+    "dev": "NODE_ENV=development ./node_modules/.bin/nodemon app.js",
+    "test": "echo \\"Error: no test specified\\" && exit 1"
+  },
+```
+
+使用 `npm run dev`启动，再修改一下test.js的代码（随便改什么，不影响功能就可以），然后保存，我们会看到控制台打印了新的信息了，那就是可以热更新了。
+
+## 开始开发
+
+基础代码都完善了，现在可以无干扰开发业务接口了
+
+首先，在`routes`下创建一个新文件，就叫做`googleAuth.js`吧。
+
+根据第二节的思路，我们可以确定需要有两个接口：
+
+1、获取授权页面地址
+
+2、获取id_token
+
+先写下框架，锁定开发的焦点
+
+```jsx
+// googleAuth.js
+
+const router = require('koa-router')();
+router.prefix('/api');
+
+router.post('/googleOauth2Url', async (ctx, next) => {
+  try {
+    // 调用google API
+    // ……
+
+    ctx.body = {
+      success: true,
+      code: 200,
+      message: 'OK',
+      // data: authorizationUrl
+    }
+  } catch (e) {
+    console.log(e);
+    ctx.body = {
+      success: false,
+      code: 400,
+      message: '请求失败',
+      data: null
+    }
+  }
+});
+
+router.post('/googleOAuth2Login', async (ctx, next) => {
+  try {
+    const { code } = ctx.request.body;
+
+    // 调用google API
+    // ……
+
+    ctx.body = {
+      success: true,
+      code: 200,
+      message: 'OK',
+      // data: res
+    }
+  } catch (e) {
+    console.log(e);
+    ctx.body = {
+      success: false,
+      code: 400,
+      message: '谷歌登录 token 查询失败',
+      data: null
+    }
+  }
+});
+```
+
+安装依赖
+
+```bash
+npm i googleapis jwt-decode nanoid@3.3.6 -S
+```
+
+依赖说明：
+
+`googleapis` 是谷歌API的Node依赖
+
+`jwt-decode` 是用来解码token获取用户信息
+
+`nanoid` 用来生成临时state，防止攻击
+
+注意看nanoid的版本，最新版不支持commonJS，这也是一个坑，要去看nonaid更新记录才知道哪个版本以下支持commonJS。
+
+现在我们施展一下魔法，获得完整代码，让我们通过代码注释来讲解
+
+```jsx
+const router = require('koa-router')();
+const { google } = require('googleapis');
+const { nanoid } = require('nanoid');
+const jwt_decode = require('jwt-decode');
+
+router.prefix('/api');
+
+// 创建一个 `google.auth.OAuth2` 对象，用于定义授权请求中的参数
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_SECRET,
+  process.env.GOOGLE_LOGIN_REDIRECT_URL,
+);
+
+router.post('/googleOauth2Url', async (ctx, next) => {
+  try {
+    // 如果你有redis，可以把state缓存到redis，设置5分钟的过期时间，用户调用 /api/googleOAuth2Login 时携带state，node端判断是否过期
+    // 如果不要，可以删掉state相关代码，不影响功能
+    const state = nanoid();
+
+    const authorizationUrl = oauth2Client.generateAuthUrl({
+      access_type: 'offline', // 非必传，添加这个字段，会在第一次请求返回refresh_token
+      state, // 如果有传state，google也会在重定向到我们网站的时候携带state
+      scope: process.env.GOOGLE_SCOPE.split(','), // 在Node包中，scope要传字符串
+      include_granted_scopes: true, // 启用增量授权，官方建议使用
+    });
+
+    // 返回
+    ctx.body = {
+      success: true,
+      code: 200,
+      message: 'OK',
+      data: authorizationUrl
+    }
+  } catch (e) {
+    console.log(e);
+    ctx.body = {
+      success: false,
+      code: 400,
+      message: e,
+      data: null
+    }
+  }
+});
+
+router.post('/googleOAuth2Login', async (ctx, next) => {
+  try {
+    // 我在上一个接口创建了state，但是这个接口却没有用，这是因为我在业务服务中已经用state判断是否拦截了
+
+    const { code } = ctx.request.body;
+
+    const result = await oauth2Client.getToken(code);
+    if (!result.tokens) {
+      console.log(
+        `谷歌登录 token 查询失败，完整返回是：${JSON.stringify(result)}`
+      );
+      throw new Error('谷歌登录 token 查询失败');
+    }
+    const googleUserInfo = jwt_decode(result.tokens.id_token);
+
+    /** 解码结果如下，常用字段标出来了：
+     * {
+     *    "iss":"<https://accounts.google.com>",
+     *    "azp":"xxx",
+     *    "aud":"xxx",
+     *    "sub":"谷歌账号ID",
+     *    "email":"邮箱",
+     *    "email_verified":true,
+     *    "at_hash":"xxx",
+     *    "name":"用户名",
+     *    "picture":"头像",
+     *    "given_name":"名",
+     *    "family_name":"姓",
+     *    "locale":"zh-CN",
+     *    "iat":1688626819,
+     *    "exp":1688630419
+     * }
+     */
+
+    // access_token，有需要则取出来
+    const access_token = result.tokens.access_token;
+
+    if (access_token) {
+      // 返回信息
+      const res = {
+        success: true,
+        message: 'OK',
+        code: 200,
+        data: {
+          access_token: result.tokens.access_token,
+          googleId: googleIdTokenDecoded.sub,
+          username: googleIdTokenDecoded.name,
+          avatar: googleIdTokenDecoded.picture,
+          email: googleIdTokenDecoded.email,
+        },
+      };
+      ctx.body = res;
+    } else {
+      throw new Error('谷歌授权登录获取token失败');
+    }
+  } catch (e) {
+    console.log(e);
+    ctx.body = {
+      success: false,
+      code: 400,
+      message: '谷歌登录 token 查询失败',
+      data: null
+    }
+  }
+});
+
+module.exports = router;
+```
+
+这样本文要开发的代码都完成了，当你有一个这样的公共服务器时，业务服务器还需要做哪些工作？
+
+对于`googleOauth2Url`接口，业务服务器只要做个转发就可以。
+
+对于`googleOAuth2Login`接口，业务服务器要做state有效期判断、用户数据入库、用户token生成和缓存等等业务系统自己的逻辑。
+
+将来，如果我还有其它业务系统要接入公共服务，只需要优化一下环境配置就可以了，这是真正的一次开发，永久使用。
+
+如果你觉得这些代码还有点用，可以到Github自取（有star就更好了）：[👉google-login-tencent-serverless](https://github.com/weijunext/google-login-tencent-serverless)
+如果你想尝试本文实现后的效果，可以到 [https://helloai.wiki](https://helloai.wiki/) 试试
+
+## 上传代码，更新环境变量，部署验证
+
+再次打开serverless后台，部署代码
+
+![11.png](/assets/002/11.png)
+
+超时时间我选择了30秒，是个比较长的时间限制，主要是担心访问国外服务比较慢。
+
+部署完成后，就能看到一个URL，这就是你生产环境的服务地址
+
+![12.png](/assets/002/12.png)
+
+## 结语
+
+以上就是实现谷歌OAuth2.0的全部内容了，写这篇文章的目的是抹平谷歌OAuth2.0开发的信息差，跟着以上步骤思路实现，你只需要半个小时就能完成自己的谷歌授权登录功能。

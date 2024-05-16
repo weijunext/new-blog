@@ -1,0 +1,142 @@
+---
+title: prisma migrate命令简明教程
+description: 本文介绍了prisma migrate命令的使用方法
+slug: learn-prisma-migrate
+slugId: d542b265-131d-4553-9d2d-b0e72a35e8d5
+tags: Backend,NextJS,NextJS实战
+date: 2023-08-20
+---
+
+`Prisma Migrate`是`Prisma`的数据库迁移工具，可以帮助我们管理数据库模式的变更。本文在假设读者已认识`Prisma`的前提下展开。
+
+## 创建模型
+
+假设我们在`Prisma Schema`中定义了一个`Post`模型。例如:
+
+```scheme
+// schema.prisma
+
+model Post {
+  id        Int     @id @default(autoincrement())
+  title     String
+  content   String?
+  createdAt DateTime @default(now())
+}
+```
+
+接着运行:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+这会生成一个新的迁移，并在数据库中**创建Post模型的表**。
+
+这条命令会让`Prisma`帮我们完成这些工作：
+
+- 根据`schema.prisma`中的模型定义，生成了创建这些模型所需的SQL语句
+- 这些SQL语句会在一个新建的迁移文件中，默认位置是`prisma/migrations`目录下
+- 迁移文件的名称包含了`migrate`命令中指定的`"--name"`参数,在这个例子中是`"init"`
+- `Prisma`执行了这些SQL语句来更新数据库，进行了具体的建表、改表等操作
+- 数据库 `schema`得到了实际变更，包含了在`schema.prisma`中定义的模型
+- 数据库的更新与`schema.prisma`达成一致
+- 同时，`Prisma Client`根据更新后的`schema`重新生成,包含了对新模型的操作API
+- 所以，`migrate`命令把模型从`schema`映射到实际数据库实现中
+- 加上`"--name"`参数,可以在执行`migrate`时生成命名迁移文件,便于版本控制
+
+## 更新模型
+
+当我们需要变更模型时，例如添加一个新字段，我们需要:
+
+1. 在Prisma Schema中更新模型，如：
+
+```scheme
+model Post {
+  id        Int     @id @default(autoincrement())
+  title     String
+  content   String?
++ author    String?
+  createdAt DateTime @default(now())
+}
+```
+
+1. 运行`npx prisma migrate dev --name added_author`更新迁移
+
+命令执行后会进行以下操作:
+
+- 根据`schema.prisma`生成新增字段的SQL语句
+- 创建一个新迁移文件,命名为`"added_author.sql"`
+- 在开发环境数据库执行SQL,完成添加新字段的操作
+- `Prisma Client`也会根据新的`schema`重新生成
+
+## 更新生产环境数据库
+
+当我们想修改生产环境的数据库，可以利用这个命令：
+
+```bash
+npx prisma migrate deploy
+```
+
+完整更新生产环境数据库的步骤是：
+
+1. 在本地开发环境,更新 `Prisma schema`，例如添加新字段
+2. 在本地运行:`npx prisma migrate dev --name add_new_field` 来生成新的迁移文件
+3. 将生成的迁移文件更新到生产环境
+4. 在生产环境运行：`npx prisma migrate deploy`
+5. 这会找到尚未执行的迁移文件，并运行里面的SQL语句来更新数据库 schema
+6. 如果一切顺利，迁移完成后可以重新启动相关服务
+7. 下次部署时，`npx prisma migrate deploy` 会自动忽略已迁移的文件
+
+## 重置数据库
+
+当我们在开发过程中，通过多次`npx prisma migrate dev`和`npx prisma migrate deploy`执行了一系列的迁移操作后，数据库的schema可能已经和最初的状态不一样了。
+
+如果这个时候我们想直接重置数据库schema到一个空的初始状态,这里就可以使用这个命令：
+
+```bash
+npx prisma migrate reset
+```
+
+重置迁移会:
+
+1. 删除数据库中所有由`Prisma Migrate`创建的表
+2. 删除`_Migration`表，这是`Prisma Migrate`内部用来记录迁移历史的表
+3. 重新创建并初始化`_Migration`表
+
+这样就会让数据库回到一个没有任何`Prisma`模型的干净状态。
+
+之后如果再次运行`npx prisma migrate dev`,就会重新生成初始的迁移文件，可以重新执行数据库schema的变更。
+
+所以在开发过程中，如果发现数据库schema已经混乱难以维护时，可以用`npx prisma migrate reset`来清空状态，然后重新开始迁移。
+
+在生产环境中要非常小心使用该命令，它会导致现有数据被清空。
+
+## 批准迁移
+
+在我们使用`npx prisma migrate dev`生成了许多迁移文件之后，这些迁移都只是未批准的状态。
+
+如果想让这些迁移生效，我们通常需要运行`npx prisma migrate deploy`。
+
+但是如果想批量批准所有的迁移文件，可以使用`npx prisma migrate resolve`。
+
+这会直接在数据库中应用所有这些未批准的迁移，等效于依次执行了每一个`npx prisma migrate deploy`。
+
+这样可以避免需要一个一个地部署迁移文件，特别是在开发环境需要重建数据库时，会非常方便。
+
+在生产环境中要慎用这个命令，因为它会直接变更数据库，建议还是每次只部署一个迁移文件。
+
+## 结语
+
+以上就是`prisma migrate`命令的使用方法。
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

@@ -1,0 +1,85 @@
+---
+title: CSS技巧：用十行代码写一个跃动文字链的hover效果
+description: 用10行代码写一个让文字跃动的组件，这谁顶得住？
+slug: css-trick-hover-text-jump
+tags: CSS技巧
+date: 2023-11-26
+visible: invisible
+---
+
+我不知道这种效果该叫什么名称，姑且叫做「跃动文字链」吧。它的效果就是：在一串文字中，鼠标滑到哪个文字，这个文字就起立。就像这个动图一样：
+
+![录屏动图.gif](/assets/038/1.gif)
+
+这个效果可能没有什么业务价值，主打一个互动性和视觉趣味性。试问哪个人看到可互动的动效会舍得离开呢？
+
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起学习交流前端和Node端技术
+
+### 代码实现
+
+「跃动文字链」效果实现非常简单，它不在乎你使用HTML、Vue还是React，它只需要你写CSS。
+
+我用TailwindCSS实现的代码如下，一共只要12行，掐头去尾就当作只有10行吧：
+
+```jsx
+export default function Caterpillar({ text, className, bgColor }) {
+  const chars = text.split('');
+  return (
+    <div className={`flex ${className}`}>
+      {chars.map((c, i) => (
+        <div key={i} className={`flex ${bgColor || 'bg-[#4472c4]'} ${i === 0 ? 'rounded-s-lg' : ''} ${i === chars.length - 1 ? 'rounded-e-lg' : ''} border-top border-bottom border-2 border-brand bg-primary text-background -ml-[2px] pb-[0.1rem] px-2 transition duration-300 ease-in-out hover:-translate-y-1`}>
+          <span>{c}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+```
+
+调用组件：
+
+```jsx
+<Caterpillar text={BLOG.BIO} className="justify-center text-white -ml-px p-1" bgColor="bg-[#4472c4]" />
+```
+
+如果你使用的是React + TailwindCSS，你可以直接复制我的代码，如果使用Vue，只需要改写标签遍历，这样你就拥有了自己的「文字跃动串」组件啦。
+
+## TailwindCSS介绍
+
+如果你还不了解TailwindCSS，可以通过这一节内容入门。
+
+TailwindCSS是一种CSS框架，它几乎把每个CSS属性都写成一个样式类，你可以通过自由组合这些样式类来创建复杂的设计和布局。这种思想也被称作“原子化”设计。
+
+TailwindCSS相比传统的CSS写法有几个优势：
+
+- 高效性：通过使用样式类，可以快速地构建界面而不必写很多自定义CSS
+- 响应式设计：Tailwind内置了响应式设计的样式类，使得创建响应式设计非常高效
+- 高度可定制：可以通过Tailwind的配置文件轻松扩展样式设计
+
+### TailwindCSS用法
+
+无论是在Vue、React还是Next.js项目中，使用TailwindCSS的步骤类似。以下是使用步骤：
+
+1. 安装
+    
+    ```bash
+    npm install tailwindcss postcss autoprefixer
+    npx tailwindcss init
+    ```
+    
+    这会安装TailwindCSS及其依赖，并创建一个 `tailwind.config.js` 配置文件。
+    
+2. 引入Tailwind的层
+    
+    在主CSS文件里引入以下代码：
+    
+    ```css
+    @tailwind base;
+    @tailwind components;
+    @tailwind utilities;
+    ```
+    
+3. 配置
+    
+    在 `tailwind.config.js` 里，你可以扩展自己的设计。`tailwind.config.js` 配置方式可以到这里学习：[Tailwind配置项](https://www.tailwindcss.cn/docs/configuration)
+

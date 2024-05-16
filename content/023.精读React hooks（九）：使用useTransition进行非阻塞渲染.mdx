@@ -1,0 +1,254 @@
+---
+title: 精读React hooks（九）：使用useTransition进行非阻塞渲染
+description: React的默认渲染行为是同步的，遇到大数据量渲染时就会出现卡顿，使用useTransition就可以轻松把UI渲染变成异步的，让卡顿消失无踪。
+slug: react-hook-useTransition
+slugId: 5458862c-76aa-436e-adc5-269dc82228df
+tags: React
+date: 2023-09-14
+---
+
+众所周知（其实很多人没有意识到），React的默认渲染行为是同步的，React总是在我一个操作或者状态更新后再执行下一个操作或状态更新。在大部分场景下，这种即时响应是理想的，因为它确保了UI与内部状态保持紧密同步。但在密集或资源繁重的更新场景下——如加载大量数据时，这种同步行为可能导致整个应用的UI卡顿甚至没有响应。我们把这种UI卡顿现象叫做“阻塞”，当你遇到这种情况时，你的leader往往会让你进行用户体验优化🐶。
+
+React v18开始，官方引入了并发模式（Concurrent Mode）和一些相关的Hooks，其中之一就是`useTransition`。开发者可以将某些状态更新标记为“可中断”的，从而允许React在必要时打断这些更新，先处理其他更为紧急的任务。我们把这种渲染效果称作“非阻塞UI”。
+
+在这篇文章中，我们就来探讨`useTransition`的工作原理，如何在实际应用中使用它。
+
+## `useTransition`基础
+
+首先，我们要明白`useTransition`的设计初衷：在React的并发模式下，允许我们中断或延后某些状态更新，以便于能够在长时间的计算或数据拉取时保持UI的响应性。
+
+### 用法定义
+
+```jsx
+const [isPending, startTransition] = useTransition()
+```
+
+- `isPending`：是一个布尔值，当过渡状态仍在进行中时，其值为`true`；否则为`false`。
+- `startTransition`：是一个函数，当你希望启动一个新的过渡状态时调用它。
+
+### 工作原理
+
+1. **并发模式下的状态更新分类**:
+在React的并发模式中，不是所有的状态更新都被视为等同的。React将更新分为不同的优先级类别，其中某些更新（如输入处理）被认为是更加紧急的，而其他更新（如从服务器获取数据）则可以中断或者延后更新。
+2. **使用`startTransition`进行状态更新**:
+当你使用`startTransition`函数进行状态更新时，你实际上告诉 React：这个更新不是非常紧急的，如果有更重要的更新要处理，你可以中断或延后这个次要更新。
+3. **`isPending`的用途**:
+`isPending` 为我们提供了一个标识，告诉我们是否有一个`startTransition`正在执行。我们可以根据`isPending`来设置过渡状态的样式。
+
+### 使用范围和注意事项
+
+- `useTransition`仅在开启React并发模式的时候才有效
+    
+    ```jsx
+    // React v18以前
+    ReactDOM.render(<app />, rootNode) // ❌ 无法开启useTransition
+    
+    // React v18
+    ReactDOM.createRoot(rootNode).render(<app />) // ✅ 开启useTransition
+    ```
+    
+- 只有当你能访问某个状态的`set`函数时，你才能将更新包装进`useTransition`中。
+- 传递给`startTransition`的函数必须是同步的，而不能是异步的。
+    
+    ```jsx
+    startTransition(async () => {
+      await someAsyncFunction();
+      // ❌ Setting state *after* startTransition call
+      setPage('/about');
+    });
+    
+    await someAsyncFunction();
+    startTransition(() => {
+      // ✅ Setting state *during* startTransition call
+      setPage('/about');
+    });
+    ```
+    
+- 如果你想根据某个 prop 或自定义 Hook 的值来启动一个过渡，那么你应该尝试使用`useDeferredValue`。这是下一篇介绍的hook，此处不展开。
+- 不能用于控制文本输入。因为输入框是需要实时更新的，如果用`useTransition`降低了渲染优先级，可能造成输入“卡顿”。
+- 不要在`startTransition`内部使用`setTimeout`，如果一定要用`setTimeout`，你可以在`startTransition`外层使用
+    
+    ```jsx
+    startTransition(() => {
+      // ❌ Setting state *after* startTransition call
+      setTimeout(() => {
+        setPage('/about');
+      }, 1000);
+    });
+    
+    setTimeout(() => {
+      startTransition(() => {
+        // ✅ Setting state *during* startTransition call
+        setPage('/about');
+      });
+    }, 1000);
+    ```
+    
+- 前面说到很多次“中断或延后更新”，那么什么时候中断，什么时候延后更新？最简单的理解：被`useTransition`包裹的同一个状态多次更新，只会渲染最后一个，前面的都算中断（仅UI层面，如：长列表多次请求）；不同组件触发不同状态的更新，被`useTransition`包裹的状态优先级较低，被中断后会等高优先级的状态更新完成后继续更新（如：复杂图表渲染被中断，会在高优先级状态更新后，继续处理图表的渲染）。
+
+### 示例
+
+#### 有无`useTransition`的对比
+
+想象一个场景，页面上有多个tab，其中一个请求耗时较长，我们快速点击tab切换内容，但总是会在请求耗时的tab上卡顿一下，代码如下：
+
+```jsx
+import React, { useState, memo } from 'react';
+
+const TabContainer = () => {
+  const [tab, setTab] = useState('about');
+
+	// 核心：切换选项卡
+  function selectTab(nextTab) {
+    setTab(nextTab);
+  }
+
+  return (
+    <div>
+      <div>
+        <TabButton isActive={tab === 'about'} onClick={() => selectTab('about')}>About</TabButton>
+        <TabButton isActive={tab === 'posts'} onClick={() => selectTab('posts')}>Posts (slow)</TabButton>
+        <TabButton isActive={tab === 'contact'} onClick={() => selectTab('contact')}>Contact</TabButton>
+      </div>
+      <hr />
+      {tab === 'about' && <AboutTab />}
+      {tab === 'posts' && <PostsTab />}
+      {tab === 'contact' && <ContactTab />}
+    </div>
+  );
+};
+
+const PostsTab = memo(() => {
+  let items = [];
+  for (let i = 0; i < 500; i++) {
+    items.push(<SlowPost key={i} index={i} />);
+  }
+  return <ul>{items}</ul>;
+});
+
+const SlowPost = ({ index }) => {
+  let startTime = performance.now();
+  while (performance.now() - startTime < 10) { }
+  return <li>Post on weijunext.com #{index + 1}</li>;
+};
+
+// 省略非关键代码
+// ……
+
+export default TabContainer;
+```
+
+如果我们想用`useTransition`保持UI的响应，只需要用`startTransition`包裹切换选项卡的`set`
+
+```jsx
+const [isPending, startTransition] = React.useTransition();
+
+function selectTab(nextTab) {
+  startTransition(() => {
+    setTab(nextTab);      
+  });
+}
+```
+
+这样我们快速切换tab，无论点到哪一个tab都不会卡顿。
+
+#### `useTransition`和`Suspense`实现路由流畅切换
+
+当与路由结合使用时，`React.Suspense`允许我们延迟渲染新的路由内容，直到所需的数据被完全加载。而`useTransition`则允许我们可控地开始这种可能导致UI变化的过渡——导航到新页面。
+
+例如这个示例：
+
+```jsx
+import React, { useState } from 'react';
+import { BrowserRouter, Switch, Route, Link } from 'react-router-dom';
+
+const [location, setLocation] = useState(window.location);
+const [isPending, startTransition] = React.unstable_useTransition();
+
+// 使用 startTransition 来更新 location 状态，能够延迟显示新页面的内容，直到数据加载完毕
+function handleNavigation(newLocation) {
+  startTransition(() => {
+    setLocation(newLocation);
+  });
+}
+
+// 主应用组件
+function App() {
+  return (
+    <div>
+      <BrowserRouter>
+        {/* 导航 */}
+        <nav>
+          <CustomLink to="/about">About</CustomLink>
+          <CustomLink to="/contact">Contact</CustomLink>
+        </nav>
+
+        {/* 使用 React.Suspense 来处理组件的懒加载 */}
+        <React.Suspense fallback={<LoadingIndicator />}>
+          <Switch location={location}>
+            <Route path="/about" component={AboutPage} />
+            <Route path="/contact" component={ContactPage} />
+            {/* ...其他路由... */}
+          </Switch>
+        </React.Suspense>
+
+        {/* 使用 isPending 显示或隐藏全局加载指示器 */}
+        {isPending && <LoadingIndicator />}
+      </BrowserRouter>
+    </div>
+  );
+}
+
+export default App;
+```
+
+通过这种方式，我们可以优雅地处理路由切换，并确保在数据加载时为用户提供一个流畅的体验。
+
+## 结语
+
+`useTransition`带来的是“可中断”的异步UI渲染，当实际工作中遇到卡顿的现象，不妨想想是否能用`useTransition`解决。
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

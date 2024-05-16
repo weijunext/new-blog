@@ -129,5 +129,4 @@ dist
 */sitemap*.xml
 */robots.txt
 
-public/json
-index.json
+# public/json

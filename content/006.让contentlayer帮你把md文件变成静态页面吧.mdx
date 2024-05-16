@@ -1,0 +1,645 @@
+---
+title: 让contentlayer帮你把md文件变成静态页面吧
+description: contentlayer可以帮助你把mdx文件转成静态页面，有了它，你可以专注写markdown文件，然后自动获得解析后的页面。
+slug: integrate-contentlayer
+slugId: 49744a7c-f56b-43d7-8864-693ed3efa1a5
+tags: NextJS,NextJS实战,Markdown
+date: 2023-08-15
+---
+
+## **Contentlayer 是什么**
+
+[Contentlayer](https://www.contentlayer.dev/) 是一个功能强大的静态网站生成器，专为构建和管理静态页面、网站和博客而设计。它提供了一种简单而灵活的方式来创建和组织内容，可以将`Markdown`文件转换为静态`HTML`页面。
+
+## **Contentlayer 有什么用**
+
+- **内容建模：** Contentlayer 有一个配置文件，你可以定义不同类型的内容，如文章、页面、作者等，并为每个类型定义字段和关联关系。
+- **Markdown支持：** Contentlayer 使用`Markdown`文件作为内容源，它可以把你写的`MDX`文件解析为`HTML`，并生成静态页面或嵌入到其他静态页面中。
+- **静态网站生成：** 如上所述，你也可以利用`Markdown`支持轻松生成和更新你的静态网站。
+- **自定义渲染：** Contentlayer 允许你自定义`React`组件来替换或扩展默认的Markdown渲染器，以实现更多你想要的样式。
+
+## 使用步骤
+
+Contentlayer 使用方法乍一看容易一头雾水，用完之后又容易忘记一些细节，所以需要记录下使用步骤。
+
+以下示例基于`NextJS 13.x`版本的`app router`实现。
+
+1. 安装依赖
+
+```bash
+pnpm i @types/mdx concurrently contentlayer next-contentlayer -S 
+```
+
+再安装几个markdown插件，这些插件可以增强markdown渲染样式，并非每个都需要，挑自己需要的安装，也可以全部安装慢慢享用
+
+```bash
+pnpm i remark-gfm -S
+```
+
+如果你想问这些`rehype`和`remark`插件都是什么作用，请猛击👉[一些好用的Markdown优化插件](/article/markdown-lib)
+
+1. 创建Contentlayer配置文件，定义内容模型和数据源
+    
+    在你的Next.js项目根目录下创建一个名为**`contentlayer.config.js`**的文件，并开始定义内容模型和配置选项。在配置文件中，你可以定义不同类型的内容，如文章、页面等，并为每个类型定义字段和关联关系。
+    
+    上代码和注释：
+    
+    ```jsx
+    import { defineDocumentType, makeSource } from 'contentlayer/source-files'
+    import remarkGfm from 'remark-gfm'
+    
+    /** @type {import('contentlayer/source-files').ComputedFields} */
+    const computedFields = {
+      slug: {
+        type: "string",
+        resolve: (doc) => `/${doc._raw.flattenedPath}`,
+      },
+      slugAsParams: {
+        type: "string",
+        resolve: (doc) => doc._raw.flattenedPath.split("/").slice(1).join("/"),
+      },
+    }
+    
+    // defineDocumentType 定义文档类型。可以这个参考格式定义多种文档。
+    export const Post = defineDocumentType(() => ({
+      name: "Post",
+      filePathPattern: `**/*.mdx`, // 指定匹配的文件路径模式
+      contentType: "mdx", // 指定了文档类型为 mdx
+      fields: { // 定义文档的字段结构，因为我接下来的示例中只用到title和description字段，所以其他字段被我注释掉了。如果此处配置的字段和实际mdx文件中用到的不一样，编译会报错
+        title: {
+          type: "string",
+          required: true,
+        },
+        description: {
+          type: "string",
+        },
+        // date: {
+        //   type: "date",
+        //   required: true,
+        // },
+        // published: {
+        //   type: "boolean",
+        //   default: true,
+        // },
+        // image: {
+        //   type: "string",
+        //   required: true,
+        // },
+        // authors: {
+        //   // Reference types are not embedded.
+        //   // Until this is fixed, we can use a simple list.
+        //   // type: "reference",
+        //   // of: Author,
+        //   type: "list",
+        //   of: { type: "string" },
+        //   required: true,
+        // },
+      },
+      computedFields,
+    }))
+    
+    // makeSource 创建数据源
+    export default makeSource({
+      contentDirPath: "./content", // 指定内容文件的目录路径
+      documentTypes: [Post], // 指定使用的文档类型，支持多个
+      mdx: { // 配置MDX解析器的插件
+        remarkPlugins: [remarkGfm],
+      },
+    })
+    ```
+    
+2. 添加styles/mdx.css
+    
+    这不是必须的，作用是定义样式规则，用于美化渲染后的代码块
+    
+    ```css
+    [data-rehype-pretty-code-fragment] code {
+      @apply grid min-w-full break-words rounded-none border-0 bg-transparent p-0 text-sm text-black;
+      counter-reset: line;
+      box-decoration-break: clone;
+    }
+    [data-rehype-pretty-code-fragment] .line {
+      @apply px-4 py-1;
+    }
+    [data-rehype-pretty-code-fragment] [data-line-numbers] > .line::before {
+      counter-increment: line;
+      content: counter(line);
+      display: inline-block;
+      width: 1rem;
+      margin-right: 1rem;
+      text-align: right;
+      color: gray;
+    }
+    [data-rehype-pretty-code-fragment] .line--highlighted {
+      @apply bg-slate-300 bg-opacity-10;
+    }
+    [data-rehype-pretty-code-fragment] .line-highlighted span {
+      @apply relative;
+    }
+    [data-rehype-pretty-code-fragment] .word--highlighted {
+      @apply rounded-md bg-slate-300 bg-opacity-10 p-1;
+    }
+    [data-rehype-pretty-code-title] {
+      @apply mt-4 py-2 px-4 text-sm font-medium;
+    }
+    [data-rehype-pretty-code-title] + pre {
+      @apply mt-0;
+    }
+    ```
+    
+3. 编辑`tsconfig.json`
+    
+    **`"paths"`** 字段用于配置模块解析的路径映射
+    
+    **`"include"`** 字段用于指定要包含在编译过程中的文件或目录
+    
+    在这两个字段里添加`contentlayer`的配置
+    
+    ```json
+    {
+    ……
+    "baseUrl": ".", // 添加本行
+    "paths": {
+    	……
+      "contentlayer/generated": ["./.contentlayer/generated"] // 添加本行，这是后面markdown文件编译后存放的目录
+    },
+    ……
+    "include": [
+      ……
+      ".contentlayer/generated" // 添加本行
+    ],
+    }
+    ```
+    
+4. 用`withContentLayer`更新next config配置
+    
+    先把`next.config.js`改为`next.config.mjs`以支持`ES import`
+    
+    ```jsx
+    import { withContentlayer } from "next-contentlayer"
+    
+    /** @type {import('next').NextConfig} */
+    const nextConfig = {
+    	……
+    }
+    
+    export default withContentlayer(nextConfig)
+    ```
+    
+5. 配置基本完成了，现在开始写md渲染组件
+    
+    创建`components/mdx`文件夹，在里面分别创建`callout.tsx` `mdx-card.tsx` `mdx-components.tsx`三个文件。最后`markdown`页面好不好看全靠这三个文件了
+    
+    ```tsx
+    // callout.tsx
+    import { cn } from "@/lib/utils"
+    
+    interface CalloutProps {
+      icon?: string
+      children?: React.ReactNode
+      type?: "default" | "warning" | "danger"
+    }
+    
+    export function Callout({
+      children,
+      icon,
+      type = "default",
+      ...props
+    }: CalloutProps) {
+      return (
+        <div
+          className={cn("my-6 flex items-start rounded-md border border-l-4 p-4", {
+            "border-red-900 bg-red-50": type === "danger",
+            "border-yellow-900 bg-yellow-50": type === "warning",
+          })}
+          {...props}
+        >
+          {icon && <span className="mr-4 text-2xl">{icon}</span>}
+          <div>{children}</div>
+        </div>
+      )
+    }	
+    ```
+    
+    ```tsx
+    // mdx-card.tsx
+    import Link from "next/link"
+    
+    import { cn } from "@/lib/utils"
+    
+    interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+      href?: string
+      disabled?: boolean
+    }
+    
+    export function MdxCard({
+      href,
+      className,
+      children,
+      disabled,
+      ...props
+    }: CardProps) {
+      return (
+        <div
+          className={cn(
+            "group relative rounded-lg border p-6 shadow-md transition-shadow hover:shadow-lg",
+            disabled && "cursor-not-allowed opacity-60",
+            className
+          )}
+          {...props}
+        >
+          <div className="flex flex-col justify-between space-y-4">
+            <div className="space-y-2 [&>h3]:!mt-0 [&>h4]:!mt-0 [&>p]:text-muted-foreground">
+              {children}
+            </div>
+          </div>
+          {href && (
+            <Link href={disabled ? "#" : href} className="absolute inset-0">
+              <span className="sr-only">View</span>
+            </Link>
+          )}
+        </div>
+      )
+    }
+    ```
+    
+    ```tsx
+    // mdx-components.tsx
+    import * as React from "react";
+    import Image from "next/image";
+    import { useMDXComponent } from "next-contentlayer/hooks";
+    import type { MDXComponents } from "mdx/types";
+    
+    import { cn } from "@/lib/utils";
+    import { Callout } from "@/components/mdx/callout";
+    import { MdxCard } from "@/components/mdx/mdx-card";
+    
+    const components: MDXComponents = {
+      h1: ({ className, ...props }) => (
+        <h1
+          className={cn(
+            "mt-2 scroll-m-20 text-4xl font-bold tracking-tight",
+            className
+          )}
+          {...props}
+        />
+      ),
+      h2: ({ className, ...props }) => (
+        <h2
+          className={cn(
+            "mt-10 scroll-m-20 border-b pb-1 text-3xl font-semibold tracking-tight first:mt-0",
+            className
+          )}
+          {...props}
+        />
+      ),
+      h3: ({ className, ...props }) => (
+        <h3
+          className={cn(
+            "mt-8 scroll-m-20 text-2xl font-semibold tracking-tight",
+            className
+          )}
+          {...props}
+        />
+      ),
+      h4: ({ className, ...props }) => (
+        <h4
+          className={cn(
+            "mt-8 scroll-m-20 text-xl font-semibold tracking-tight",
+            className
+          )}
+          {...props}
+        />
+      ),
+      h5: ({ className, ...props }) => (
+        <h5
+          className={cn(
+            "mt-8 scroll-m-20 text-lg font-semibold tracking-tight",
+            className
+          )}
+          {...props}
+        />
+      ),
+      h6: ({ className, ...props }) => (
+        <h6
+          className={cn(
+            "mt-8 scroll-m-20 text-base font-semibold tracking-tight",
+            className
+          )}
+          {...props}
+        />
+      ),
+      a: ({ className, ...props }) => (
+        <a
+          className={cn("font-medium underline underline-offset-4", className)}
+          {...props}
+        />
+      ),
+      p: ({ className, ...props }) => (
+        <p
+          className={cn("leading-7 [&:not(:first-child)]:mt-6", className)}
+          {...props}
+        />
+      ),
+      ul: ({ className, ...props }) => (
+        <ul className={cn("my-6 ml-6 list-disc", className)} {...props} />
+      ),
+      ol: ({ className, ...props }) => (
+        <ol className={cn("my-6 ml-6 list-decimal", className)} {...props} />
+      ),
+      li: ({ className, ...props }) => (
+        <li className={cn("mt-2", className)} {...props} />
+      ),
+      blockquote: ({ className, ...props }) => (
+        <blockquote
+          className={cn(
+            "mt-6 border-l-2 pl-6 italic [&>*]:text-muted-foreground",
+            className
+          )}
+          {...props}
+        />
+      ),
+      img: ({
+        className,
+        alt,
+        ...props
+      }: React.ImgHTMLAttributes<HTMLImageElement>) => (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img className={cn("rounded-md border", className)} alt={alt} {...props} />
+      ),
+      hr: ({ ...props }) => <hr className="my-4 md:my-8" {...props} />,
+      table: ({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) => (
+        <div className="my-6 w-full overflow-y-auto">
+          <table className={cn("w-full", className)} {...props} />
+        </div>
+      ),
+      tr: ({ className, ...props }: React.HTMLAttributes<HTMLTableRowElement>) => (
+        <tr
+          className={cn("m-0 border-t p-0 even:bg-muted", className)}
+          {...props}
+        />
+      ),
+      th: ({ className, ...props }) => (
+        <th
+          className={cn(
+            "border px-4 py-2 text-left font-bold [&[align=center]]:text-center [&[align=right]]:text-right",
+            className
+          )}
+          {...props}
+        />
+      ),
+      td: ({ className, ...props }) => (
+        <td
+          className={cn(
+            "border px-4 py-2 text-left [&[align=center]]:text-center [&[align=right]]:text-right",
+            className
+          )}
+          {...props}
+        />
+      ),
+      pre: ({ className, ...props }) => (
+        <pre
+          className={cn(
+            "mb-4 mt-6 overflow-x-auto rounded-lg border bg-black py-4",
+            className
+          )}
+          {...props}
+        />
+      ),
+      code: ({ className, ...props }) => (
+        <code
+          className={cn(
+            "relative rounded border px-[0.3rem] py-[0.2rem] font-mono text-sm",
+            className
+          )}
+          {...props}
+        />
+      ),
+      Image,
+      Callout,
+      Card: MdxCard,
+    };
+    
+    interface MdxProps {
+      code: string;
+    }
+    
+    export function Mdx({ code }: MdxProps) {
+      const Component = useMDXComponent(code);
+    
+      return (
+        <div className="mdx">
+          <Component components={components} />
+        </div>
+      );
+    }
+    ```
+    
+6. 开始写`mdx`文件
+    
+    根据`Contentlayer`配置文件的配置，现在在根目录创建一个`content`文件夹，在里面创建一个`about`文件夹，在`about`里创建两个`mdx`文件，分别叫`terms.mdx`和`privacy.mdx`,
+    
+    ```markdown
+    ---
+    title: Terms
+    description: Read our terms
+    ---
+    
+    Term 1.
+    
+    ## Title 1
+    
+    content content content
+    ```
+    
+    ```markdown
+    ---
+    title: Privacy
+    description: Read our Privacy
+    ---
+    
+    Privacy 1.
+    
+    ## Title 1
+    
+    content content content
+    ```
+    
+7. 在`app`文件夹内创建路由文件
+    
+    从`app`开始，创建出这样的路径：`app/(about)/[…slug]/page.tsx`
+    
+    如果你想给`mdx`文件页面设置布局，在`(about)`文件夹下添加一个`layout.tsx`写一下布局，这里仅提供`page.tsx`文件的代码
+    
+    ```tsx
+    // page.tsx
+    import { notFound } from "next/navigation";
+    import { allPosts } from "contentlayer/generated";
+    
+    import { Mdx } from "@/components/mdx/mdx-components";
+    
+    import "@/styles/mdx.css";
+    import { Metadata } from "next";
+    
+    import { siteConfig } from "@/config/site";
+    import { absoluteUrl } from "@/lib/utils";
+    
+    interface PageProps {
+      params: {
+        slug: string[];
+      };
+    }
+    
+    async function getPageFromParams(params: { slug: string[] }) {
+      const slug = params?.slug?.join("/");
+      const page = allPosts.find((page) => page.slugAsParams === slug);
+    
+      if (!page) {
+        null;
+      }
+    
+      return page;
+    }
+    
+    // 下面OG的代码如果适用你的项目，你可以取消注释
+    // export async function generateMetadata({
+    //   params,
+    // }: PageProps): Promise<Metadata> {
+    //   const page = await getPageFromParams(params);
+    
+    //   if (!page) {
+    //     return {};
+    //   }
+    
+    //   const url = process.env.NEXT_PUBLIC_APP_URL;
+    
+    //   const ogUrl = new URL(`${url}/api/og`);
+    //   ogUrl.searchParams.set("heading", page.title);
+    //   ogUrl.searchParams.set("type", siteConfig.name);
+    //   ogUrl.searchParams.set("mode", "light");
+    
+    //   return {
+    //     title: page.title,
+    //     description: page.description,
+    //     openGraph: {
+    //       title: page.title,
+    //       description: page.description,
+    //       type: "article",
+    //       url: absoluteUrl(page.slug),
+    //       images: [
+    //         {
+    //           url: ogUrl.toString(),
+    //           width: 1200,
+    //           height: 630,
+    //           alt: page.title,
+    //         },
+    //       ],
+    //     },
+    //     twitter: {
+    //       card: "summary_large_image",
+    //       title: page.title,
+    //       description: page.description,
+    //       images: [ogUrl.toString()],
+    //     },
+    //   };
+    // }
+    
+    export async function generateStaticParams(): Promise<PageProps["params"][]> {
+      return allPosts.map((page) => ({
+        slug: page.slugAsParams?.split("/"),
+      }));
+    }
+    
+    export default async function PagePage({ params }: PageProps) {
+      const page = await getPageFromParams(params);
+    
+      if (!page) {
+        notFound();
+      }
+    
+      return (
+        <article className="container max-w-3xl py-6 lg:py-12">
+          <div className="space-y-4">
+            <h1 className="inline-block font-heading text-4xl lg:text-5xl">
+              {page.title}
+            </h1>
+            {page.description && (
+              <p className="text-xl text-muted-foreground">{page.description}</p>
+            )}
+          </div>
+          <hr className="my-4" />
+          <Mdx code={page.body.code} />
+        </article>
+      );
+    }
+    ```
+    
+8. 运行代码
+    
+    此时执行`npm run dev`会发现报错了，是的，还得修改启动命令和打包命令
+    
+    ```json
+    // package.json
+    "scripts": {
+        "dev": "concurrently \"contentlayer dev\" \"next dev\"",
+        "build": "contentlayer build && next build",
+        "start": "next start"
+      },
+    ```
+    
+    现在执行启动命令，根目录会出现`.contentlayer`文件夹，如果里面的文件夹结构是图片这样的：
+    
+    ![contentlayer-example.png](/assets/006/01.png)
+    
+    那就说明以上配置全部正确。
+    
+    如果没有出现`.contentlayer`文件夹，说明包版本不匹配，可以到这个issuss来看大家的经验：[contentlayer/issues/415](https://github.com/contentlayerdev/contentlayer/issues/415#issuecomment-1670949525)，`next@13.3.0`版本下，安装`contentlayer@0.3.3`和`next-contentlayer@0.3.3`是可以使用的。
+    
+9. 配置一下忽视`.contentlayer`文件夹
+    
+    修改`.prettierignore`和`.gitignore`
+    
+    ```bash
+    // .prettierignore
+    
+    ……
+    .contentlayer
+    ```
+    
+    ```bash
+    // .gitignore
+    
+    ……
+    .contentlayer
+    ```
+    
+
+全部配置完成！如果你有新的页面想用mdx来写，只要在content里添加文件就可以。
+
+配置过程有点烦，但是配置完成后是真的香。
+
+## 和React-markdown有什么区别
+
+有了以上的经验，再看`contentlayer`和`react-markdown`的区别，可以看出来`contentlayer`是页面级别的工具，而`react-markdown`是组件级别的工具。
+
+当你的项目有多个md文件时，用`contentlayer`显然性价比更高，因为使用`react-markdown`除了要写md文件，还要写一个页面组件包裹起来。
+
+而当你需要在组件级别使用md格式，那么要果断使用`react-markdown`。
+
+## 源码与演示
+
+源码：👉[contentlayer](https://github.com/weijunext/nextjs-learn-demos/tree/contentlayer)
+
+在线演示：👉[Contentlayer MDX演示](https://nextjs.weijunext.com/mdx-page-demo)
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

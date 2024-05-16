@@ -1,0 +1,506 @@
+---
+title: 我为独立开发者开发落地页模板（下）
+description: 本文内容包含：落地页开发理念、rough notation与framer-motion的应用、暗黑模式的支持与国际化最佳实践。
+slug: ship-langding-page-fast2
+tags: NextJS,NextJS实战
+date: 2024-05-07
+---
+
+在【**[我为独立开发者开发落地页模板（一）](/article/ship-langding-page-fast1)**】我们完成了基础项目的搭建和落地页的设计思路的整理，这篇文章就来讲解后续的开发过程。
+
+学完这篇文章你将获得以下知识：
+
+- 落地页开发理念
+- `rough notation` 与 `framer-motion` 的应用
+- 暗黑模式的支持
+- Next.js 国际化最佳实践
+
+我已经为本教程的落地页模板开发了一个落地页（套壳了属于是）：
+
+开源地址：https://github.com/weijunext/landing-page-boilerplate
+
+落地页地址：https://landingpage.weijunext.com/
+
+看完页面效果，如果你发出这样的感叹：
+
+<img src="/assets/048/1.jpeg" alt="人才" width="30%" />
+
+那么请继续阅读本文。
+
+## 内容设计与开发
+
+上一篇文章我画了一张落地页的页面结构图，那是一张丐版示例图，为不熟悉落地页概念的读者而画的，实际上落地页的每一块都有专业名词，所以让我重新介绍一下落地页的页面结构：
+
+- **Header**：落地页头部，提供重要内容的锚点和工具
+- **Hero**：落地页首屏，是访客首先看到的位置，要立即吸引访问者的注意力，清晰传达产品或服务的价值和优势。可以包含这些信息：
+    - 标题：清晰、简洁的主标题，传达出产品或服务的最大卖点（USP）。
+    - 副标题：补充主标题，也可以理解为描述，提供更多细节或强化卖点。
+    - 数据展示：通过展示产品数据（如用户数、好评率）、合作伙伴或者获奖数据，强化品牌价值
+    - CTA按钮：醒目的呼吁行动按钮。
+    
+    ![demo1.png](/assets/048/demo1.png)
+    
+- **Feature**：介绍产品或服务的特点和功能，让用户知道自己在为什么而买单。设计要点：
+    - 清晰的特点列举：用简洁的语言列出主要特点。
+    - 以用户为中心进行描述：强调产品或服务如何解决用户的痛点。
+    
+    ![demo2.png](/assets/048/demo2.png)
+    
+- **Pricing**：展示价格和付费选项，明确每个选项提供的功能和服务，使潜在客户能够做出明智的决策。
+    
+    ![demo3.png](/assets/048/demo3.png)
+    
+- **Testimonials**：这部分是展示客户评价，通过展示真实客户的正面反馈，可以进一步与潜在用户建立信任。设计要点：
+    - 真实的用户：展示真实客户的信息（被允许的情况下）。
+    - 描述成果：描述客户如何通过使用产品或服务取得成功。
+    - 多样化的案例：展示来自不同背景和行业的客户，以获取不同客群的认可。
+    
+    Testimonials 还有另一个我认为更好的名称：Wall of Love，我觉得这个名称显得网站更有温度。
+    
+    ![demo4.png](/assets/048/demo4.png)
+    
+- **FAQ**：提前预设潜在用户最可能提出的问题，并给出解答，减少购买前的不确定性和障碍。
+    
+    ![demo5.png](/assets/048/demo5.png)
+    
+- **CTA**：又叫「呼吁行动」，经过以上的内容展示和互动，访问者已经了解了产品或服务，所以我们要在页面的末尾，替用户完成心中的总结，指导用户做出决策。
+    
+    ![demo6.png](/assets/048/demo6.png)
+    
+- **Footer**：网站底部，这是可以帮助优化SEO的地方，在多语言支持的章节我们再说。
+
+以上是每个模块的设计理念和要点，不过我们还得考虑落地页整体风格。色彩与动画能够带动访问者的情绪，所以我们需要用不同的高亮、动画来强化落地页要展示的内容。为了让落地页更有吸引力，我引入了 `rough notation` 和 `framer-mition`。
+
+## Rough Notation 高亮
+
+Rough Notation 是基于 RoughJS 创建的手绘风格动画库，这个库提供了多种高亮手绘风样式，并且可配置项丰富，对于开发者来说还是非常自由的。
+
+Next.js 项目使用 **react-rough-notation** 库更方便。
+
+安装依赖：
+
+```bash
+npm install --save react-rough-notation
+```
+
+调用组件：
+
+```tsx
+import { RoughNotation } from "react-rough-notation";
+
+<RoughNotation type="highlight" show={true} color="#2563EB">
+  Feature
+</RoughNotation>
+```
+
+上面截图的落地页里，每个部分的标题、CTA 的红色框都是用 react-routh-notation 实现的高亮和动画效果。
+
+你可以在[Rough Notation网站](https://roughnotation.com/)或者[react-rough-notation文档](https://www.npmjs.com/package/react-rough-notation#props)里学习可用的属性，不过我更推荐直接看[react-rough-notation线上示例](https://codesandbox.io/p/sandbox/react-rough-notation-demo-8b1g8?file=%2Fsrc%2FApp.js)，代码和效果对照着看，你可以更快记住属性的作用。
+
+## framer-motion动画
+
+前端工程师想要做动画的时候，通常可以手写 `transition` 和 `animation` 来实现，更复杂的使用贝塞尔曲线、弹簧-阻尼系统的动效就鲜有人能手写实现了，大部分前端工程师可以通过调用第三方动效库来完成这样的复杂动效。
+
+framer-motion 就是这些动效库之一，它基于 React 构建，因为其灵活的配置、符合物理系统和流畅的多平台性能体验而备受推崇。落地页需要添加一些灵动的动画来吸引访问者，framer-motion 就是一个很好的选择。
+
+framer-motion 最核心的一个能力，就是可以用 motion 组件增强 HTML 标签。一个简单的用法示例是这样：
+
+```tsx
+import {motion} from 'framer-motion'
+
+const Hero = () => {
+	return <motion.div></motion.div>
+}
+```
+
+motion 组件使用最广泛的属性是 animate 和 transition，也是落地页模板里的用例：
+
+```tsx
+import {motion} from 'framer-motion'
+
+const Hero = () => {
+	return (
+		<motion.div
+		  initial={{ opacity: 0, scale: 0.5 }}
+		  animate={{ opacity: 1, scale: 1 }}
+		  transition={{
+		    duration: 0.3,
+		    ease: [0, 0.71, 0.2, 1],
+		    scale: {
+		      type: "spring",
+		      damping: 10,
+		      stiffness: 50,
+		      restDelta: 0.001,
+		    },
+		  }}
+		>
+			{/* 要添加动画的组件 */}
+		</motion.div>
+	)
+}
+```
+
+这里使用了 initial、animate 和 transition 三个属性：
+
+- initial：定义组件初始状态，也可以使用 style 来定义
+- animate：定义组件终点状态
+- transition：定义组件的中间状态
+
+看到这里你可能已经发现， motion 的属性写法和 CSS 很像。没错，如果你熟悉 CSS 中动画相关的属性，你的学习曲线可以很平滑。
+
+本文主要介绍 framer-motion 的三种动画模式，也就是例子中的 `transition.scale.type` 配置：
+
+- **Tween**：又称做「补间动画」，用于设置起点和终点之间进行平滑的过渡，相当于 CSS 中的 ease 曲线动画效果。因为这种动画更自然，所以大多数场景下使用 Tween 模式就可以。
+- **Spring**：又称做「弹簧-阻尼动画」，模拟了物理世界中物体弹性的动作。你可以通过物理参数来控制动画行为，能够获得更加活泼的动画效果。如果你使用了这种模式，可以通过以下参数来调控动效：
+    - `stiffness`（弹簧硬度）：弹簧的弹性系数，决定了弹簧回到平衡位置的速率。硬度越高，弹簧的弹力越大，动画开始的加速度也就越大，动画启动和停止地越快
+    - `damping`（阻尼）：减缓振动的力量，阻尼越高，动画停止的速度就越快
+    - `mass`（质量）：受力时的惯性大小。在动画中，质量越大，动画加速和减速就越慢
+    - `restDelta`（静止差值）：动画结束前允许的最小移动量。当弹簧动画的物体移动距离小于该值时，动画会被认为是停止的。通常要设置比较小的值，这样组件停下的位置会更准确地靠近我们样式里设定的位置。
+- **Inertia**：又称做「惯性动画」，模拟了物体在受到推动后随着时间推移逐渐减速直至停止的自然行为。这种模式的使用场景最少。
+
+framer-motion 是一个让动效实现非常方便的库，如果一定要找个缺点，那就是配置太多而文档没有很好的索引，查阅时会显得凌乱，所以如果你要开始使用framer-motion，应当先通读一遍文档，然后根据需求再进行查找对应的API。
+
+framer-motion官方文档：https://www.framer.com/motion
+
+## 暗黑模式与主题切换
+
+我们样式方案使用的是 Tailwind，Tailwind已经内置支持暗黑模式了，你只需要使用 `dark:` 的类名就可以配置暗黑模式的样式：
+
+```
+<div class="bg-white dark:bg-slate-800>
+</div>
+```
+
+出于用户体验考虑，我们的网站最好能够提供主题切换的按钮，让用户自主选择主题。我们落地页选择的方案是 `next-themes`。
+
+1. 安装 `next-themes`：
+    
+    ```bash
+    npm i -S next-themes
+    ```
+    
+2. 创建 `ThemeProvider`：
+    
+    ```tsx
+    // app/components/ThemeProvider.tsx
+    
+    "use client";
+    
+    import { ThemeProvider as NextThemesProvider } from "next-themes";
+    import { ThemeProviderProps } from "next-themes/dist/types";
+    
+    export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
+      return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
+    }
+    
+    ```
+    
+3. 在根布局引入 `ThemeProvider`：
+    
+    ```tsx
+    // app/layout.tsx
+    
+    import { ThemeProvider } from "@/components/ThemeProvider";
+    
+    export default async function RootLayout({
+      children
+    }: {
+      children: React.ReactNode
+    }) {
+      return (
+        <html lang="en" suppressHydrationWarning>
+          <head />
+          <body
+          >
+            <ThemeProvider
+              attribute="class"
+              defaultTheme={siteConfig.nextThemeColor} {/* light, dark */}
+              enableSystem
+            >
+              {/* 应用内容 */}
+            </ThemeProvider>
+          </body>
+        </html>
+      );
+    }
+    
+    ```
+    
+    其中:
+    
+    - `defaultTheme` 可设置默认主题，落地页暗色主题更高级，所以我配置了 `dark`
+    - `enableSystem` 配置是否基于 `prefers-color-scheme` 进行主题切换。tailwind 的配置里有 `prefers-color-scheme` CSS 媒体功能的配置，所以 `enableSystem` 为 true 就行了
+    
+    ```tsx
+      // tailwind.config.js
+      
+      themeColors: [
+        { media: '(prefers-color-scheme: light)', color: 'white' },
+        { media: '(prefers-color-scheme: dark)', color: 'black' },
+      ],
+    ```
+    
+4. 编写切换主题按钮
+    
+    ```tsx
+    // app/components/ThemedButton.tsx
+    
+    "use client";
+    import PhMoonFill from "@/components/icons/moon";
+    import PhSunBold from "@/components/icons/sun";
+    import { useTheme } from "next-themes";
+    
+    export function ThemedButton() {
+      const { theme, setTheme } = useTheme();
+    
+      return (
+        <div onClick={() => setTheme(theme === "light" ? "dark" : "light")}>
+          {theme === "light" ? <PhMoonFill /> : <PhSunBold />}
+        </div>
+      );
+    }
+    
+    ```
+    
+    其中 `useTheme` 是 `next-themes` 的 hook，可以获取当前主题，根据当前主题我们可以判断按钮状态。
+    
+    再把 `ThemedButton` 组件引入 `Header` 组件，主题切换的功能就完成了。
+    
+
+## 国际化最佳实践
+
+实现国际化最根本的方案是，根据用户选择的语言进行 url 重定向，页面判断 url 前缀，然后展示对应语言的内容。
+
+为了提升用户体验，还应该做到访问根路由（即 `https://landingpage.weijunext.com/` 时），展示默认语言的内容。
+
+这样我们的需求就确定了：
+
+- 通过 `middleware.ts` 进行 url 重定向
+    - url 的语言前缀已经被支持，不进行重定向
+    - url 没有语言前缀，或语言前缀不被支持，重定向到根路由
+    - 中间件不匹配静态资源（包括图片、txt、xml等文件）和 API 路由
+- 访问根路由，读取默认语言的内容配置文件；访问带语言前缀的 url，显示对应语言的内容配置文件
+- 页面 Header 上显示语言切换按钮
+
+现在就可以开始开发了。
+
+先定义国际化需要的参数：
+
+```tsx
+// lib/i18n.ts
+
+// 默认语言
+export const defaultLocale = "en";
+// 支持的语言
+export const locales = ["", "en", "zh", "zh-CN", "zh-TW", 'zh-HK'];
+// 语言切换按钮的可选项
+export const localeNames = {
+  en: "🇺🇸 English",
+  zh: "🇨🇳 中文",
+};
+
+// 导出语言配置文件
+const dictionaries: any = {
+  en: () => import("@/locales/en.json").then((module) => module.default),
+  zh: () => import("@/locales/zh.json").then((module) => module.default),
+};
+
+// 获取语言文件内容
+export const getDictionary = async (locale: string) => {
+  if (["zh-CN", "zh-TW", "zh-HK"].includes(locale)) {
+    locale = "zh";
+  }
+  // 没有匹配到的语言，都读取英文内容
+  if (!Object.keys(dictionaries).includes(locale)) {
+    locale = "en";
+  }
+  return dictionaries[locale]();
+};
+```
+
+定义重定向方法
+
+```tsx
+// middelware.ts
+
+import { locales } from "@/lib/i18n";
+import { NextRequest } from "next/server";
+
+export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+
+	// 如果 url 前缀匹配到了，不进行重定向
+  const isExit = locales.some(
+    (locale) => pathname.startsWith(`/${locale}/`) || pathname === `/${locale}`
+  );
+  if (isExit) return;
+
+	// 如果没有匹配到，重定向到根路由
+  request.nextUrl.pathname = `/`;
+  return Response.redirect(request.nextUrl);
+}
+
+// 中间件过滤掉 _next文件夹、图片等静态资源、api路由
+export const config = {
+  matcher: ["/((?!_next)(?!.*\\.(?:ico|png|svg|jpg|jpeg|xml|txt)$)(?!/api).*)"],
+};
+
+```
+
+为了匹配根路由，我们的动态路由不能使用 `[lang]` 的格式，要用 `[[…lang]]` 的格式，所以目录是这样的：
+
+```tsx
+├── app
+│   └── [[...lang]]           # 动态路由
+│       └── page.tsx          # 页面文件
+│   └── layout.tsx            # 布局文件
+```
+
+在动态路由上，布局文件和页面文件都能捕获到 url 动态参数。我们可以根据这个特性，为根布局设置语言：
+
+```tsx
+// app/layout.tsx
+
+export default async function RootLayout({
+  children,
+  params: { lang },
+}: {
+  children: React.ReactNode;
+  params: { lang: string[] | undefined };
+}) {
+  return (
+	  {/* 解析动态路由参数，如果不存在，则设置为默认语言 */}
+    <html lang={(lang && lang[0]) || defaultLocale} suppressHydrationWarning>
+			{/* 其他内容 */}
+    </html>
+  );
+}
+```
+
+在页面上，用同样的方法判断要显示的语言，然后导入语言配置文件的内容就可以了
+
+```tsx
+// app/[[..lang]]/page.tsx
+
+import { defaultLocale, getDictionary } from "@/lib/i18n";
+
+export default async function LangHome({
+  params: { lang },
+}: {
+  params: { lang: string };
+}) {
+  const langName = (lang && lang[0]) || defaultLocale;
+
+  const dict = await getDictionary(langName); // 获取内容
+
+  return (
+    <>
+      {/* Hero Section */}
+      <Hero locale={dict.Hero} CTALocale={dict.CTAButton} />
+      <SocialProof locale={dict.SocialProof} />
+      {/* Can be used to display technology stack, partners, project honors, etc. */}
+      <ScrollingLogos />
+
+      {/* USP (Unique Selling Proposition) */}
+      <Feature id="Features" locale={dict.Feature} langName={langName} />
+
+      {/* Pricing */}
+      <Pricing id="Pricing" locale={dict.Pricing} langName={langName} />
+
+      {/* Testimonials / Wall of Love */}
+      <WallOfLove id="WallOfLove" locale={dict.WallOfLove} />
+
+      {/* FAQ (Frequently Asked Questions) */}
+      <FAQ id="FAQ" locale={dict.FAQ} langName={langName} />
+
+      {/* CTA (Call to Action) */}
+      <CTA locale={dict.CTA} CTALocale={dict.CTAButton} />
+    </>
+  );
+}
+```
+
+最后，编写一个语言切换按钮的组件，在 Header 导入就可以
+
+```tsx
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useParams, useRouter } from "next/navigation";
+import { defaultLocale, localeNames } from "@/lib/i18n";
+
+export const LangSwitcher = () => {
+  const params = useParams();
+  const lang = (params.lang && params.lang[0]) || defaultLocale;
+  const router = useRouter();
+
+  const handleSwitchLanguage = (value: string) => {
+	  // 如果选择的是默认语言，则 url 不要语言前缀
+    if (value === defaultLocale) {
+      router.push("/");
+      return;
+    }
+    router.push(value);
+  };
+
+  return (
+    <Select value={lang} onValueChange={handleSwitchLanguage}>
+      <SelectTrigger className="w-fit">
+        <SelectValue placeholder="Language" />
+      </SelectTrigger>
+      <SelectContent>
+        {Object.keys(localeNames).map((key: string) => {
+          const name = localeNames[key];
+          return (
+            <SelectItem className="cursor-pointer" key={key} value={key}>
+              {name}
+            </SelectItem>
+          );
+        })}
+      </SelectContent>
+    </Select>
+  );
+};
+```
+
+国际化配置大功告成。
+
+## 结语
+
+【我为独立开发者开发通用落地页模板】系列是一名前端工程师学习产品设计与UI设计的一次尝试，我个人的目标是通过这样的尝试让自己成为一名合格的「产品工程师」，而这次指定实践场景的自我训练也确实让我获益良多。
+
+本文讲解的落地页设计仅是抛砖引玉，如果有更好的产品设计或者UI设计，欢迎留言和提pr。
+
+相关链接：
+
+[👉落地页模板开发讲解（一）](/article/ship-langding-page-fast1)
+
+[👉落地页模板开发讲解（二）](/article/ship-langding-page-fast2)
+
+[👉落地页模板开源地址](https://github.com/weijunext/landing-page-boilerplate)
+
+[👉落地页线上地址](https://landingpage.weijunext.com/)
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

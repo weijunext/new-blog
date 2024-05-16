@@ -1,0 +1,216 @@
+---
+title: 精读React hooks（一）：useState 的几个基础用法和进阶技巧
+description: 自从 React v16.8 版本以来，React Hooks 为我们提供了全新的编写和思考 React 组件的方式。这是本系列文章第一篇，我们将探讨最常用的 hook——useState。
+slug: react-hook-useState
+slugId: 36abddc1-a8cb-4618-b6eb-e536c4879535
+tags: React
+date: 2023-09-02
+---
+
+自从 React v16.8 版本以来，React Hooks 为我们提供了全新的编写和思考 React 组件的方式。不仅管理状态和生命周期变得更简洁、更强大，Hooks 还引入了并发渲染和其他高级功能。本系列文章将详细探讨每一个 Hook，从基础到高级。首篇，我们将探讨最常用的 hook——`useState`。
+
+## useState 的基本用法
+
+`useState`主要用于给组件添加状态变量。注意，我们只能在组件的顶层或自定义的 Hooks 中调用`useState`。
+
+### 初始化状态
+
+**基础定义**
+
+```tsx
+const [age, setAge] = useState(42);
+```
+
+**懒初始化**
+
+对于需要计算得到的初始状态，可以使用函数传递给`useState`。这样，函数只在初次渲染时执行，而非每次渲染。
+
+```tsx
+const [todos, setTodos] = useState(createInitialTodos); // 注意：传递函数本身，非执行结果
+```
+
+### 更新状态
+
+#### 直接更新vs函数式更新
+
+大部分情况，直接更新状态即可：
+
+```tsx
+setAge(newState);
+```
+
+但当新状态依赖于前一个状态时，推荐使用函数式更新。这确保了更新准确性，特别是在并发模式下。
+
+```tsx
+setState(prevState => prevState + 1);
+```
+
+以下两个例子展示函数式更新的重要性：
+
+```tsx
+// 示例1: 使用函数式更新
+import { useState } from 'react';
+
+export default function Counter() {
+  const [age, setAge] = useState(42);
+
+  function increment() {
+    setAge(a => a + 1); // 函数式更新
+  }
+
+  return (
+    <>
+      <h1>Your age: {age}</h1>
+      <button onClick={() => {
+        increment();
+        increment();
+        increment();
+      }}>+3</button>
+    </>
+  );
+}
+// 结果：点击 +3 时，age 更新为 45。
+```
+
+```tsx
+// 示例2: 使用直接更新
+import { useState } from 'react';
+
+export default function Counter() {
+  const [age, setAge] = useState(42);
+  function increment() {
+    setAge(age + 1); // 直接更新
+  }
+  return (
+    <>
+      <h1>Your age: {age}</h1>
+      <button onClick={() => {
+        increment();
+        increment();
+        increment();
+      }}>+3</button>
+    </>
+  );
+}
+// 结果：点击 +3 时，可能只更新为 43。
+```
+
+#### 对象与数组的更新
+
+对象和数组的更新需要创建新的引用，而不是直接修改原状态。
+
+```tsx
+setForm({
+  ...form,
+  name: e.target.value // 更新这个属性
+});
+
+// 错误示例：
+// form.name = e.target.value
+```
+
+```tsx
+setTodos([
+  ...todos,
+  {
+    id: nextId++,
+    title: title,
+    done: false
+  }
+]);
+
+// 错误示例
+// todos.push({
+//   id: nextId++,
+//   title: title,
+//   done: false
+// });
+// setTodos(todos);
+```
+
+#### 函数的更新
+
+把函数存储到state里是很少见的做法，但某些情况下，我们有可能需要这么做。
+
+先看一个错误的示例：
+
+```tsx
+const [fn, setFn] = useState(someFunction);
+
+function handleClick() {
+  setFn(someOtherFunction);
+}
+```
+
+根据上文，我们知道这样的用法是把函数的返回值存储或更新到状态中，并不是把函数存储到状态中。
+
+如果你想在状态中存储一个函数，你需要使用一个箭头函数来“包裹”它。这是正确的做法：
+
+```tsx
+const [fn, setFn] = useState(() => someFunction);
+
+function handleClick() {
+  setFn(() => someOtherFunction);
+}
+```
+
+那么我们什么时候会需要这样使用？这里介绍一些可能的场景：
+
+1. **可配置的行为**:
+你可能有一个组件，它的行为可以由父组件进行配置。在这种情况下，你可以将函数作为状态存储，以便在组件的生命周期中更改或更新它。
+2. **动态创建的函数**:
+在某些情况下，你可能需要基于组件的某些属性或状态动态创建函数。将这些函数存储为状态可以确保你只在必要时重新创建它们。
+3. **回调和外部交互**:
+如果你的组件与外部系统交互，并且需要提供回调函数，你可能希望在状态中存储这些回调函数，以便在适当的时候更改或更新它们。
+4. **延迟执行的函数**:
+在某些情况下，你可能想要在将来的某个时间点执行函数（例如，使用`setTimeout`）。将函数存储为状态可以确保即使组件的其他部分发生变化，你也可以访问到最初的函数引用。
+5. **与第三方库的集成**:
+有些第三方库可能要求你提供并在后续更改函数。在这种情况下，将函数作为状态存储可能会更加方便。
+
+## 结语
+
+在这篇文章中，我们深入探讨了 React 的`useState`Hook，从它的基础用法到一些进阶技巧。掌握好`useState`是走向 React 高手之路的关键一步。在未来的文章中，我们还将继续探讨其他的 Hooks。
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

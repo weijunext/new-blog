@@ -1,0 +1,160 @@
+---
+title: CSS技巧：用 currentColor 提升样式的灵活性和一致性
+description: 本文介绍了一个好用但不常见的CSS关键字——currentColor ，学会使用 currentColor 就能提升你的样式的灵活性和一致性。
+slug: css-trick-current-color
+tags: CSS技巧
+date: 2023-11-25
+visible: invisible
+---
+
+一名合格的CSS工程师，总是善于运用不常见的CSS技术。
+
+今天我们来学习一个好用但是鲜为人知的CSS关键字——`currentColor`，在设计动态样式中，我们可以用它来提升样式的灵活性和一致性。
+
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起学习交流前端和Node端技术
+
+## 什么是`currentColor`？
+
+在认识currentColor之前，我是这样写样式：
+
+```css
+div { 
+  color: red; 
+  border: 5px solid red;
+  box-shadow: 0 0 5px solid red;
+}
+```
+
+认识currentColor之后，我喜欢这样写：
+
+```css
+div { 
+  color: red; 
+  border: 5px solid currentcolor;
+  box-shadow: 0 0 5px solid currentcolor;
+}
+```
+
+`currentColor` 是一个古老的CSS关键字，最早出现在CSS2.1规范中，当时设计的初衷是为了简化文本颜色与其他属性颜色之间的同步。它允许我们使用元素当前的文本颜色值作为其他属性（如 `border-color`、`background-color`、`box-shadow`）的值。
+
+例如：
+
+```css
+.div {
+  color: blue;
+  border: 1px solid currentColor;
+}
+```
+
+这个样式的效果会是 `border` 的颜色 `currentColor` 和 `color` 的色值一样。
+
+![1.png](/assets/037/1.png)
+
+`currentColor` 实际上是一种“继承”的表现形式，从而实现了样式的灵活性和一致性。
+
+## 哪些属性可以使用`currentColor`？
+
+用法很简单，用在哪却很重要，以下属性都可以接受 `currentColor`：
+
+1. 边框颜色（`border-color`）
+2. 阴影颜色（`box-shadow` 和 `text-shadow`）
+3. 背景颜色（`background-color`）
+4. 轮廓颜色（`outline-color`）
+5. SVG填充色（`fill` 和 `stroke`）
+6. 列表项标记颜色（`list-style-color`）
+7. 文本装饰颜色（`text-decoration-color`）
+8. 列分隔线颜色（`column-rule-color`）
+
+如果当前元素没有 `color` 属性，那么 `currentColor` 会继承父元素的 `color` 属性。
+
+## `currentColor`妙用思路
+
+`currentColor` 的作用就是可设置动态一致的样式，所以一切的思路都源于想用更少的代码实现更灵活的样式。
+
+1. 响应式设计元素：在响应式设计中，`currentColor` 可以用于确保元素如边框、阴影等在不同设备上保持与文本颜色的一致性。
+    
+    ```css
+    /* CSS */
+    .element {
+      color: blue; /* 默认颜色 */
+      border: 2px solid currentColor; /* 边框颜色随文本颜色变化 */
+    }
+    
+    @media (max-width: 600px) {
+      .element {
+        color: green; /* 在小屏幕上改变颜色 */
+      }
+    }
+    ```
+    
+2. 动态主题/皮肤切换：在支持多种主题的网站上，`currentColor` 可以帮助快速实现颜色主题的切换。只需更改文本颜色，与之相关的所有元素（如边框、背景、图标）的颜色也会相应变化。
+    
+    ```css
+    /* CSS */
+    :root {
+      --main-color: blue;
+    }
+    
+    .element {
+      color: var(--main-color);
+      background-color: currentColor;
+    }
+    
+    .dark-theme {
+      --main-color: darkblue;
+    }
+    ```
+    
+3. 图标和SVG颜色控制：对于SVG或字体图标，使用 `currentColor` 可以确保它们的填充色或描边色与文本颜色保持一致，从而实现设计上的和谐统一。
+    
+    ```html
+    <svg class="icon">
+      <circle cx="10" cy="10" r="8" />
+    </svg>
+    ```
+    
+    ```css
+    /* CSS */
+    .icon {
+      color: red;
+    }
+    
+    .icon circle {
+      fill: currentColor; /* 圆形的填充颜色与.svg的颜色相同 */
+    }
+    ```
+    
+4. 交互状态反馈：在按钮或链接的悬浮（hover）和激活（active）状态下，`currentColor` 可用于同步改变背景色或边框色，以提供视觉反馈，增强用户体验。
+    
+    ```css
+    /* CSS */
+    .button {
+      color: blue;
+      border: 2px solid currentColor;
+      transition: color 0.3s;
+    }
+    
+    .button:hover {
+      color: green; /* 悬浮时改变颜色 */
+    }
+    ```
+    
+5. 通用组件样式：在构建可重用的 UI 组件时，`currentColor` 可以提高样式的灵活性。例如，在一个按钮组件中，可以使用 `currentColor` 来定义边框和阴影，这样只需改变文本颜色就可以轻松适应不同的背景或上下文环境。
+    
+    ```css
+    /* CSS */
+    .button {
+      color: blue;
+      box-shadow: 0px 4px currentColor; /* 阴影颜色与文本颜色一致 */
+    }
+    
+    .dark-button {
+      color: darkblue;
+    }
+    ```
+    
+
+## 结语
+
+作为一名前端工程师，以前总是先入为主把CSS当作实现样式的工具，但了解一些类似 `currentColor` 这样的特性后，恍然大悟，CSS更应该是一种设计工具或者设计方案。
+

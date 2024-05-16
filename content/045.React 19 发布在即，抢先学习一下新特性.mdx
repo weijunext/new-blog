@@ -1,0 +1,188 @@
+---
+title: React 19 发布在即，抢先学习一下新特性
+description: 盼星星，盼月亮，终于盼来 React 19。这是继引入 hooks 之后的又一个里程碑式版本，快来抢先学习一下新版本可能发布的特性！
+slug: react-v19-preview
+tags: React
+date: 2024-02-27
+---
+
+React 上一次发布版本还要追溯到2022年6月14日，版本号是18.2.0。在大前端领域，一项热门技术更新如此缓慢属实罕见。这也引起社区里一些大佬的不满，在我的上一篇文章里有提到，感兴趣的朋友可以点击查看：[React 社区里的分歧](/article/react-server-components-discussion)。
+
+在社区不满的声音越来越大的背景下，React 新版本的消息终于来了。
+
+React 团队也回应了迟迟未发布新的正式版本的质疑：此前发布到 Canary 版本的多项特性，因为这些特性是相互关联的，所以 React 团队需要投入大量时间确保它们能够协同工作，然后才能逐步发布到 Stable 版本。
+
+事实也确实如此，虽然在这将近两年的时间里 React 没有发布正式版本，但是 Canary 却有一些重磅更新，例如：`use`、`useOptimistic` hook，`use client`、`use server` 指令。这些更新客观上丰富了 React 生态系统，特别是推动了 Next.js 和 Remix 等全栈框架的高速发展。
+
+React 团队已经确定，下一个版本将是大版本号，即版本号会是 19.0.0。
+
+<Aside>
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起交流学习前端和Node技术
+</Aside>
+
+## v19 新特性预测
+
+现在，让我们根据 React 团队最新发布的消息，来抢先学习一下 v19 版本可能正式发布的新特性。
+
+### 自动记忆化
+
+你是否还记得 React Conf 2021 上黄玄介绍的 React Forget？
+
+![react forget.png](/assets/045/react_forget.png)
+
+现在，它来了。
+
+它是一个编译器，目前已经在 instagram 的生产环境中应用，React 团队计划在 Meta 的更多平台中应用，并且未来会进行开源发布。
+
+在使用新编译器以前，我们使用 **`useMemo`**、**`useCallback`** 和 **`memo`** 来手动缓存状态，以减少不必要的重新渲染，这种实现方式虽然可行，但 React 团队认为这并不是他们认为理想的方式，他们一直寻找让 React 在状态变化时自动且只重新渲染必要部分的方案。经过多年的攻坚，现在新的编译器成功落地了。
+
+新的 React 编译器会是一个开箱即用的特性，对开发者来说是又一次开发范式的改变，这也是 v19 最让人期待的功能。
+
+好玩的是，React 团队在介绍新编译器时完全没有提到“React Forget”，这也让好事的网友爆梗了：They forget React Forget & forget to mentioned Forget in the Forget section.🤣
+
+### Actions
+
+React Actions 是 React 团队在探索客户端向服务器发送数据的解决方案过程中发展出来的，这个功能允许开发者向 DOM 元素（如 `<form/>`）传递一个函数：
+
+```html
+<form action={search}>
+  <input name="query" />
+  <button type="submit">Search</button>
+</form>
+```
+
+action 函数可以同步或异步操作。使用 action 时，React 将为开发者管理数据提交的生命周期，我们可以通过 **`useFormStatus`** 和 **`useFormState`** 这两个 hook 来访问表单操作的当前状态和响应。
+
+action 可以在执行数据库变更（如增加、删除、更新数据）和实现表单（如登录表单、注册表单）等**客户端到服务器交互的场景**中使用。
+
+action 不仅可以与 **`useFormStatus`** 和 **`useFormState`** 结合使用，还可以用与 **`useOptimistic`** 和 **`use server`** 结合使用。详细展开篇幅就会很长了，你可以关注我，很快我会单独写一篇文章介绍 action 的详细用法。
+
+### 指令：use client 与 use server
+
+**`use client`** 和 **`use server`** 两个指令在 Canary 版本发布已久，终于也要在 v19 版本里加入 Stable 版本了。
+
+此前社区频频有人因为 Next.js 在生产环境使用这两个指令而指责 Next.js 在破坏 React 生态、批评 React 团队纵容 Next.js 超前使用非稳定特性。其实大可不必，因为这两个指令就是为 Next.js 和 Remix 这样的全栈框架设计的，短期内普通开发者使用 React 开发应用几乎不会用到它们。
+
+如果你是使用 React，而不是使用全栈框架，你只需要了解这两个指令的作用即可：**`use client`** 和 **`use server`** 标记了前端和服务端两个环境的“分割点”，**`use client`** 指示打包工具生成一个 **`<script>`** 标签，而 **`use server`** 告诉打包工具生成一个POST端点。这两个指令能够让开发者在一份文件里同时写客户端代码和服务端代码。
+
+<Aside>
+如果你对这两个指令感兴趣，可以来看我的另一篇文章：「🌍[NextJS v13服务端组件和客户端组件及最佳实践](/article/nextjs-v13-server-side-and-client-side-components-best-practices)」
+
+</Aside>
+
+### useOptimistic 乐观更新
+
+<Aside>
+**乐观更新**：是一种在前端开发中常用的处理异步操作反馈的策略。它基于一种“乐观”的假设：即假设无论我们向服务器发送什么请求，这些操作都将成功执行，因此在得到服务器响应之前，我们就提前在用户界面上渲染这些改变。使用场景：点赞、评论、任务添加编辑等。
+
+</Aside>
+
+**`useOptimistic`** 是一个新的 hook，很可能在 v19 版本中被标记为稳定版。**`useOptimistic`** 允许你在异步操作（如网络请求）进行时，乐观地更新 UI。它通过接受当前状态和一个更新函数作为参数，返回一个在异步操作期间可能会有所不同的状态副本。你需要提供一个函数，这个函数接收当前状态和操作的输入，并返回在操作等待期间使用的乐观状态。
+
+它的用法定义如下：
+
+```jsx
+const [optimisticState, addOptimistic] = useOptimistic(state, updateFn);
+
+// or
+
+const [optimisticState, addOptimistic] = useOptimistic(
+  state,
+  // updateFn
+  (currentState, optimisticValue) => {
+    // merge and return new state with optimistic value
+  }
+);
+```
+
+**参数**
+
+- **`state`**: 初始状态值，以及在没有操作进行时返回的值。
+- **`updateFn(currentState, optimisticValue)`**: 一个函数，接收当前状态和传递给 **`addOptimistic`** 的乐观值，返回结果乐观状态。**`updateFn`** 接收两个参数：**`currentState`** 和 **`optimisticValue`**。返回值将是 **`currentState`** 和 **`optimisticValue`** 的合并值。
+
+**返回值**
+
+- **`optimisticState`**: 产生的乐观状态。当有操作正在进行，它等于 **`updateFn`** 返回的值，没有操作正在进行，它等于 **`state`**。
+- **`addOptimistic`**: 这是在进行乐观更新时调用的调度函数。它接受一个参数 **`optimisticValue`**（任意类型），并调用带有 **`state`** 和 **`optimisticValue`** 的 **`updateFn`**。
+
+更详细的用法如下：
+
+```jsx
+import { useOptimistic } from 'react';
+
+function AppContainer() {
+  const [state, setState] = useState(initialState); // 假设有一个初始状态
+  const [optimisticState, addOptimistic] = useOptimistic(
+    state,
+    // updateFn
+    (currentState, optimisticValue) => {
+      // 合并返回：新状态、乐观值
+      return { ...currentState, ...optimisticValue };
+    }
+  );
+
+  // 假设有一个异步操作，如提交表单
+  function handleSubmit(data) {
+    // 在实际数据提交前，使用乐观更新
+    addOptimistic({ data: 'optimistic data' });
+
+    // 然后执行异步操作
+    fetch('/api/submit', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(data),
+    })
+    .then(response => response.json())
+    .then(realData => {
+      // 使用实际数据更新状态
+      setState(prevState => ({ ...prevState, data: realData }));
+    });
+  }
+
+  return (
+    // 使用 optimisticState 来渲染 UI
+    <div>{optimisticState.data}</div>
+  );
+}
+```
+
+useOptimistic 会在异步操作进行时先渲染预期的结果，等到异步操作完成，状态更新后，再渲染真实的返回结果（无论成功和失败）。
+
+### 其它更新
+
+除此之外，React 团队成员 **Andrew Clark** 还透露2024年还会有以下变化：
+
+- forwardRef → ref is a prop：简化对子组件内部元素或组件的引用方式，使 **`ref`** 作为一个普通的prop传递
+- React.lazy → RSC, promise-as-child：增强了代码分割和懒加载能力
+- useContext → use(Context)：提供一种新的方式来访问 Context
+- throw promise → use(promise)：改进异步数据加载的处理方式
+- \<Context.Provider> → \<Context>：简化了上下文提供者的使用
+
+但目前 React 官网没有对以上潜在更新提供详细的信息。
+
+## 总结
+
+React 的愿景很大，他们希望打破前端和后端的边界，在维持自身客户端能力优势的基础上，同时为社区的全栈框架提供基建。我非常认可他们的做法，因为打破了端的边界，才能帮助前端工程师打破职业天花板。
+
+React 19 会是引入 hooks 之后又一次里程碑式版本，**Andrew Clark** 说新版本将在 3 月或 4 月发布，让我们拭目以待！
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

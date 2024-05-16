@@ -1,0 +1,137 @@
+---
+title: 精读React hooks（十二）：使用useImperativeHandle能获得什么能力
+description: useImperativeHandle提供了一种精确控制组件对外暴露的能力，有了它，开发者可以轻松实现对组件的细粒度控制和高度封装。
+slug: react-hook-useImperativeHandle
+slugId: 9e8ce44c-238d-4eb7-b194-69493ac7c3e5
+tags: React
+date: 2023-09-17
+---
+
+在 React 开发中，组件之间的交互大多基于 props 和 state。但是，有时我们需要更直接地访问一个组件的内部方法或属性，例如，外部控制一个自定义输入组件的焦点。这时，Refs 就派上用场（学习 useRef👉《[精读React hook（四）：useRef的多维用途](/article/useRef)》），但 Refs 本身的功能是有限的，它默认只能访问 DOM 节点或组件实例。这时，如何自定义我们想要暴露给父组件的实例方法或属性呢？答案就是使用`useImperativeHandle`。
+
+`useImperativeHandle`是一个相对少用但必要的时候能让你的 React 代码更灵活的 hook，本文我们就来探讨一下`useImperativeHandle`的使用方法和使用场景。
+
+## `useImperativeHandle`的使用
+
+`useImperativeHandle`通常与`forwardRef`一起使用，以便将 ref 传递给函数组件，用法定义如下：
+
+```jsx
+const ForwardRefChildComponents = forwardRef(function ChildComponents(props, ref) {
+  useImperativeHandle(ref, () => {
+    return {
+      // ... your methods ...
+    };
+  }, []);
+})
+```
+
+### 基础示例
+
+想象一个简单的例子，你有一个自定义输入组件，你想为其提供一个方法来清除输入内容，但不想暴露整个组件或 DOM 节点。
+
+```jsx
+const ForwardedCustomInput = forwardRef(function CustomInput(props, ref) {
+  const inputRef = useRef();
+
+  useImperativeHandle(ref, () => ({
+    clear: () => {
+      inputRef.current.value = '';
+    }
+  }));
+
+  return <input ref={inputRef} />;
+})
+```
+
+现在，当你使用`ForwardedCustomInput`并为其提供一个 ref 时，你可以直接调用`clear`方法
+
+```jsx
+function App() {
+  const inputRef = useRef();
+
+  return (
+    <div>
+      <ForwardedCustomInput ref={inputRef} />
+      <button onClick={() => inputRef.current.clear()}>Clear Input</button>
+    </div>
+  );
+}
+```
+
+当我们点击 "Clear Input" 按钮时，输入框的内容将被清除，这种实现方式让我们没有操作 DOM 节点也能操作完成操作。
+
+线上示例可以到👉[我的演示站](https://nextjs.weijunext.com/hooks/useImperativeHandle)体验。
+
+### 应用场景
+
+尽管`useImperativeHandle`能让你的 React 应用变得更灵活，但你不应该为了这样的灵活而过度使用。
+
+有一条准则可以说明何时使用`useImperativeHandle`——如果使用 props 可以解决的场景都不要使用 refs，也就无需使用`useImperativeHandle`。
+
+你应该只在确实需要自定义暴露给父组件的实例值时使用`useImperativeHandle`。例如以下场景：
+
+- 滚动到节点
+- 聚焦节点
+- 触发动画：你可能有一个组件负责管理复杂的动画，你可以使用`useImperativeHandle`来暴露`start`和`stop`等控制方法。
+- 选择文本
+
+### 优势和局限
+
+使用 `useImperativeHandle`可以带来的好处
+
+- **更好的封装**：你可以只暴露你想让父组件访问的特定方法或属性。
+- **更多的控制**：你可以精确控制组件的行为，而不是依赖于状态或属性的变化。
+
+它的局限性及潜在风险
+
+- **过度使用**：过度依赖`useImperativeHandle`可能会导致代码难以理解和维护。
+- **可能引起不必要的重新渲染**：如果依赖于外部变量或状态，可能会导致不必要的组件重新渲染。使用`useCallback`或`useMemo`可以一定程度上减少这样的重新渲染。
+
+## 结语
+
+`useImperativeHandle`提供了一种精确控制组件对外暴露的能力，有了它，开发者可以轻松实现对组件的细粒度控制和高度封装。
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

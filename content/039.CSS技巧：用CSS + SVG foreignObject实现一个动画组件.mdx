@@ -1,0 +1,262 @@
+---
+title: CSS技巧：用CSS + SVG foreignObject实现一个动画组件
+description: 在SVG里面使用HTML+CSS制作你的动画卡片，学完就可以去炫你的创意了
+slug: animated-svg-component
+tags: CSS技巧
+date: 2023-11-29
+visible: invisible
+---
+
+![demo演示.gif](/assets/039/demo1.gif)
+
+当我收到一个需求，要求做出如上图一样的文字摇曳的SVG，我的脑子里闪过svg、path、group、text……等等SVG的标签，这太让人崩溃了。
+
+SVG多麻烦，难道不能用div+css动画来做吗？SVG有没有兼容前端开发习惯的写法呢？
+
+诶，还真有，SVG的 `<foreignObject>` 元素就支持在里面写HTML和CSS。
+
+欢迎加入「🌍[独立全栈开发交流群](/make-a-friend)」，一起学习交流前端和Node端技术
+
+## SVG与`foreignObject`
+
+如果你看过SVG的代码，一定注意到了，每个SVG都有一个 `xmlns="http://www.w3.org/2000/svg` 这样的属性，这就是命名空间（namespace）。如果不给svg标签添加命名空间，那么浏览器会当作文本来识别，不信试试这两个SVG：
+
+- 👉[带xmlns的图片.svg](https://weijunext.com/avatar.svg)
+- 👉[不带xmlns的图片.svg](https://weijunext.com/avatar-no-ns.svg)
+
+命名标签的作用是告诉浏览器应当以何种标准进行解析，SVG标签缺少命名空间的情况下默认不属于任何特定的语言或格式，所以浏览不会把它作为图形渲染，而是被视为普通的文本。
+
+那么，`<foreignObject>` 又是从何而来，怎么使用？
+
+`<foreignObject>` 是SVG 1.1规范中引入的一个元素，它允许在SVG文档中嵌入其他XML命名空间的元素，如：XHTML。这意味着开发者可以在SVG中使用HTML和CSS了。
+
+它的用法是这样：
+
+```html
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+	<foreignObject x="20" y="20" width="160" height="160">
+		<div xmlns="http://www.w3.org/1999/xhtml">
+			<!-- HTML 和 CSS 代码 -->
+		</div>
+	</foreignObject>
+</svg>
+```
+
+`<div>` 里指定命名空间在HTML5标准下不是必须的，但为了代码规范，仍然建议加上。
+
+## 动画实现
+
+知道了 `<foreignObject>` 的用法，我们就可以开始用 `CSS + <foreignObject>`的方式来实现我们想要的动画了。
+
+主要有以下三项任务：
+
+- 背景动态渐变
+- 文字摇曳和淡入
+- 内容可配置
+
+### 背景动态渐变
+
+背景动态渐变的动画可以通过CSS关键帧（`@keyframes`）来实现。
+
+```css
+
+@keyframes gradientBackground {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  animation: gradientBackground 10s ease infinite;
+  background: 'linear-gradient(-45deg, #fc5c7d, #6a82fb, #05dfd7)';
+  background-size: 600% 400%;
+  width: 100%;
+  height: 100%;
+}
+```
+
+- 在 `animate-gradient` 里面，`animation` 定义了 `gradientBackground` 的动画方式，`infinite` 表示无限重复
+- `linear-gradient` 定义了渐变颜色
+- 把 `background-size` 放大，让可视区域的颜色更少，在动画推进的时候才会有更平滑却又强烈的视觉效果
+- 通过 `@keyframes` 定义一个动画 `gradientBackground` ，并给了周期位置变化
+
+实现的效果如下：
+
+![第1步：背景.gif](/assets/039/1.gif)
+
+### 文字摇曳和淡入
+
+文字摇曳也通过CSS关键帧（ `@keyframes`）来实现。
+
+```css
+@keyframes rotate {
+  0% { transform: rotate(3deg); }
+  100% { transform: rotate(-3deg); }
+}
+.animate-rotate {
+  animation: rotate ease-in-out 1s infinite alternate;
+}
+```
+
+- 通过 `@keyframes` 定义摇曳的角度
+- 通过 `animation` 定义文字摇曳动画效果，`alternate` 指示动画应该在每次迭代后改变方向
+
+实现的效果如下：
+
+![第2步：文字摇曳.gif](/assets/039/2.gif)
+
+留个作业：请完成底部小字的淡入效果。
+
+### 内容可配置
+
+我觉得这个动画卡片还是挺通用的，所以我决定做成可配置的组件。
+
+我希望卡片大小、文字内容和一些重要的样式均可配置，TypeScript定义就出来了：
+
+```tsx
+interface AnimatedSvgComponentProps {
+  width?: number;
+  height?: number;
+  titleSize?: string; // Tailwind CSS 文本大小类
+  titleText?: string;
+  paragraphSize?: string;
+  paragraphText?: string;
+  paragraphLink?: string; //链接属性
+  enableAnimation?: boolean;
+  backgroundColors?: string[];
+  textColor?: string;
+}
+```
+
+因为我个人项目使用的是Next.js和TailwindCSS，所以就导出个React组件。调整后的组件代码是这样：
+
+```tsx
+import React from "react";
+
+const AnimatedSvgComponent: React.FC<AnimatedSvgComponentProps> = ({
+  width = 800,
+  height = 400,
+  titleSize = "text-5xl", // 默认 Tailwind 文本大小
+  titleText = "Animated SVG<br/>with React & Tailwind", // 默认标题
+  paragraphSize = "text-xl", // 默认 Tailwind 文本大小
+  paragraphText = "Click to see the source", // 默认段落文本
+  paragraphLink, // 链接，默认为空
+  enableAnimation = true,
+  backgroundColors = ["#fc5c7d", "#6a82fb", "#05dfd7"],
+  textColor = "text-white",
+}) => {
+  const backgroundGradient = `linear-gradient(-45deg, ${backgroundColors.join(
+    ", "
+  )})`;
+
+  // 创建带有正确换行的标题
+  const renderedTitle = titleText.split("<br/>").map((line, index) => (
+    <React.Fragment key={index}>
+      {line}
+      <br />
+    </React.Fragment>
+  ));
+
+  // 生成段落文本或链接
+  const renderedParagraph =
+    paragraphLink && paragraphText ? (
+      <a
+        href={paragraphLink}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={paragraphSize}
+      >
+        {paragraphText}
+      </a>
+    ) : (
+      <p className={paragraphSize}>{paragraphText}</p>
+    );
+
+  return (
+    <svg
+      fill="none"
+      viewBox={`0 0 ${width} ${height}`}
+      height={height}
+      width={width}
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <foreignObject height={height} width={width}>
+        <div>
+          <style>
+            {`
+              @keyframes rotate {
+                0% { transform: rotate(3deg); }
+                100% { transform: rotate(-3deg); }
+              }
+
+              @keyframes gradientBackground {
+                0% { background-position: 0% 50%; }
+                50% { background-position: 100% 50%; }
+                100% { background-position: 0% 50%; }
+              }
+
+              @keyframes fadeIn {
+                0% { opacity: 0; }
+                66% { opacity: 0; }
+                100% { opacity: 1; }
+              }
+
+              .animate-gradient {
+                animation: gradientBackground 10s ease infinite;
+                background-size: 600% 400%;
+              }
+
+              .animate-rotate {
+                animation: rotate ease-in-out 1s infinite alternate;
+              }
+
+              .animate-fadeIn {
+                animation: fadeIn 3s ease 0s normal forwards;
+              }
+
+              .animated-svg-card {
+                height: ${height}px;
+                width: ${width}px;
+                background: ${backgroundGradient};
+                background-size: 600% 400%;
+                animation: gradientBackground 10s ease infinite;
+              }
+            `}
+          </style>
+          <div
+            className={`animated-svg-card w-full h-full flex flex-col items-center justify-center m-0 rounded-md ${
+              enableAnimation ? "animate-gradient" : ""
+            } ${textColor}`}
+          >
+            <h1
+              className={`${titleSize} uppercase text-shadow ${
+                enableAnimation ? "animate-rotate" : ""
+              }`}
+            >
+              {renderedTitle}
+            </h1>
+            {renderedParagraph}
+          </div>
+        </div>
+      </foreignObject>
+    </svg>
+  );
+};
+
+export default AnimatedSvgComponent;
+```
+
+配置还有可优化的地方，你可以复制代码按自己的需求进行改造。
+
+如果你不用TailwindCSS，可以到我的源码仓库获取[内联CSS版的组件](https://github.com/weijunext/nextjs-learn-demos/blob/AnimatedSvg/components/AnimatedSvgComponent-no-tw.tsx)。
+
+## 结语
+
+学会了 `<foreignObject>` 知识，你还不赶紧炫一下自己的创意？
+
+本文源码：👉[AnimatedSvg](https://github.com/weijunext/nextjs-learn-demos/tree/AnimatedSvg)
+
+本文体验地址：👉[在线演示](https://nextjs.weijunext.com/)
+
+命名空间（namespace）基础：👉[快速了解namespace](https://developer.mozilla.org/en-US/docs/Web/SVG/Namespaces_Crash_Course)
+

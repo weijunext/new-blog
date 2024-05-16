@@ -1,0 +1,380 @@
+---
+title: 前端有了Docker，全栈之路更轻松了
+description: 当前端拥有Docker，如磁悬浮列车获得了超导加持。前端工程师不要再拒绝Docker，请收下这一份前端看得懂也用得上的Docker教程。
+slug: docker-full-stack
+slugId: b33a5545-fd26-47a6-8641-3c7467fb3910
+tags: Docker,NextJS实战,NextJS
+date: 2023-08-23
+---
+
+## 引言
+
+前端工程师常常觉得，后端和运维团队负责部署和维护应用的生产环境，这种想法没有错，但我认为，即使前端工程师不直接负责部署，学习和理解 Docker 以及与其相关的工作流程也是有其价值的，原因如下：
+
+- **跨职能协作**：在一个团队中，前端、后端和运维需要密切合作。了解 Docker 和容器化可以帮助前端工程师更好地与团队其他成员沟通。
+- **开发和生产的一致性**：使用 Docker 可以确保开发环境和生产环境之间的一致性，这可以减少“在我机器上可以运行”的问题。
+- **自主部署和测试**：有了 Docker，前端工程师可以在本地或在某个测试环境中轻松地部署整个应用堆栈，包括后端服务和数据库。如果你还想学习当全栈，那这个特点完全有理由说服你学习 Docker。
+- **持续的学习和职业发展**：技术领域总是在不断地发展和变化。学习新技术和工具不仅可以帮助前端工程师保持与时俱进，还可以打开新的职业机会。
+
+## Docker demo 分析
+
+在上一篇文章（[从Next-Auth到Prisma，用最新潮的技术栈做登录](/article/nextjs-auth-postgres-prisma-login)），我们在本地开发时使用Postgres数据库，只需两步：
+
+1. 安装 Dcoker
+2. 配置 docker-compose.yml，执行启动命令
+
+如果没有Docker，我们就需要做这么多工作：
+
+1. 下载和安装 Postgres
+2. 配置数据目录、用户、权限等
+3. 初始化数据库目录
+4. 启动 Postgres
+5. 考虑安全性
+6. 定期更新和维护
+
+很明显，对于一名前端工程师，如果你想折腾非前端领域的工具，使用 Docker 将为你节约很多时间。
+
+现在重新看一遍上一篇文章的 docker-compose.yml
+
+```yaml
+version: '3.1'
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+```
+
+`docker-compose.yml`文件是 Docker Compose 的配置文件,它可以用来定义多容器 Docker 应用程序的服务,网络和依赖关系。
+
+我们一行一行分析下这个文件的配置：
+
+1. version: '3.1'，指定使用 Docker Compose 3.1 版本的语法。
+2. services: 定义了两个服务 db 和 adminer
+3. db:
+    - image: postgres 使用官方的 postgres 镜像
+    - volumes: 将宿主机的`./postgres`目录映射到容器内的 `/var/lib/postgresql/data` 目录，用于持久化保存数据库数据。映射目录是 Postgres 的规范要求，填其它路径会报错。
+    - ports: 将容器的 5432 端口映射到宿主机的 5432 端口。用于从外部访问数据库服务。
+    - environment: 设置 postgres 数据库的用户名和密码。
+4. adminer:
+    - image: adminer 使用 adminer 镜像,这是一个数据库管理界面。
+    - restart: always 始终重新启动这个服务,实现高可用。
+    - ports: 将容器 8080 端口映射到宿主机 8080 端口,用于从外部访问 adminer 网页界面。
+
+有了这个配置文件，我们执行`docker-compose up`就完成postgres数据库的安装启动，并且可以在8080端口可视化界面查看数据库内容。
+
+## 还想启动前端
+
+假设我们部署项目时，希望 Docker 一起把前端也启动了，那么加一下配置：
+
+```yaml
+……
+
+nextjs:
+    image: node:18 # 基于官方node镜像
+    working_dir: /app/app # 设置工作目录
+    volumes:
+      - .:/app/app # 把当前目录挂载到容器里 
+    ports:
+      - 3001:3000 # 对外暴露端口
+    command: bash -c "npx prisma generate && npm run dev" # 容器内启动命令
+    environment: # 环境变量
+      - PG_HOST=db # 设置数据库主机名为db    
+    depends_on: # 指定服务启动顺序和依赖关系
+      - db # 依赖于db，先启动bd服务，再启动nextjs
+```
+
+现在执行`docker-compose down`再执行`docker-compose up`，打开`http://localhost:3001`确实可以看到首页了
+
+![docker1.png](/assets/010/docker1.png)
+
+关于这个配置，有以下需要注意的点：
+
+- 这个例子中，我们配置了 node v18，它能帮助我们实现应用环境一致性，在不同环境中启动服务都会自动加载 node v18。
+- 为什么command 增加了`npx prisma generate`？如果不加这条命令，会出现下面的报错：
+
+```bash
+Error: @prisma/client did not initialize yet. Please run "prisma generate" and try to import it again.
+```
+
+这是因为修改配置前在本机生成了 Prisma 查询引擎，但在 Docker 容器内运行应用时，容器的平台与本机可能不同，就出现了这个错误。
+
+- 代码里还有个`environment`，这是配置环境变量的地方，如果我们希望统一在env文件里配置，那么就可以改成这样写：
+
+```bash
+# .env
+PG_HOST=db
+```
+
+```yaml
+# docker-compose.yml
+
+environment: # 环境变量
+      - PG_HOST=${PG_HOST} # 设置数据库主机名为db  
+```
+
+- 现在尝试运行docker compose，然后页面上登录，会发现登录失败，控制台还是报错：
+
+```
+Invalid `prisma.user.upsert()` invocation Can't reach database server at `localhost`:`5432` Please make sure your database server is running at `localhost`:`5432`
+```
+
+这个错误提示我们应用程序尝试连接到 **`localhost:5432`**，但无法到达数据库服务器。在 Docker Compose 环境中，服务之间不能使用 **`localhost`** 来通信，而应该使用服务名称作为主机名。
+
+我们来修改一下env文件
+
+```
+# docker中不能使用localhost，要用服务名称，所以用db
+# DATABASE_URL="postgresql://myuser:mypassword@localhost:5432/mydb?schema=public"
+DATABASE_URL="postgresql://myuser:mypassword@db:5432/mydb?schema=public"
+```
+
+这时候再启动docker compose就不再有报错了。
+
+学到这里你就已经学完了 Docker 的核心概念，下面我们再学习一下 Docker 怎么区分环境。
+
+## 区分开发和生产环境
+
+实际场景中，我们除了把 Docker 用于开发环境（如前面的demo），还会使用到生产环境部署。但是开发环境和生产环境有很多配置名同实异。这就需要做好两个环境的配置策略。
+
+### 三种策略
+
+1. **使用不同的文件名**:
+    
+    我们可以为开发和生产环境使用不同的 **`docker-compose`** 文件。例如：
+    
+    - **`docker-compose.dev.yml`**：用于开发环境
+    - **`docker-compose.prod.yml`**：用于生产环境
+    
+    启动服务时，指定要使用的文件：
+    
+    ```bash
+    docker-compose -f docker-compose.dev.yml up
+    ```
+    
+    或者
+    
+    ```bash
+    docker-compose -f docker-compose.prod.yml up
+    ```
+    
+2. **使用环境变量**:
+    
+    我们可以在 **`docker-compose.yml`** 文件中使用环境变量，并根据需要为它们提供不同的值。例如，我们可以在 **`.env.dev`** 和 **`.env.prod`** 中定义不同的环境变量，并在启动服务时指定要使用的 **`.env`** 文件：
+    
+    ```bash
+    env $(cat .env.dev | xargs) docker-compose up
+    ```
+    
+3. **使用覆盖文件**:
+    
+    Docker Compose 支持使用多个文件来定义和覆盖服务配置。这意味着我们可以有一个基本的 **`docker-compose.yml`** 文件，并为开发和生产环境使用单独的覆盖文件。
+    
+    例如，我们可以使用以下文件结构：
+    
+    - **`docker-compose.yml`**: 基本配置
+    - **`docker-compose.override.yml`**: 默认的覆盖文件，通常用于开发环境
+    - **`docker-compose.prod.yml`**: 用于生产环境的覆盖文件
+    
+    在开发环境中，只需运行 **`docker-compose up`**，它会自动使用 **`docker-compose.yml`** 和 **`docker-compose.override.yml`**。
+    
+    在生产环境中，我们可以运行：
+    
+    ```bash
+    docker-compose -f docker-compose.yml -f docker-compose.prod.yml up
+    ```
+    
+    这将首先应用 **`docker-compose.yml`** 的设置，然后使用 **`docker-compose.prod.yml`** 中的设置来覆盖它。
+    
+
+这些策略都可以有效地区分开发和生产环境的配置。选择哪种方法取决于具体需求和团队的偏好。
+
+### demo演练
+
+基于前文的`docker-compose.yml`demo，我们使用第一条策略来做一下环境区分。
+
+#### 开发环境
+
+文件名`docker-compose.dev.yml`
+
+```yaml
+version: '3.1'
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+
+  nextjs:
+    image: node:18 # 基于官方node镜像
+    working_dir: /app/app # 设置工作目录
+    volumes:
+      - .:/app/app # 把当前目录挂载到容器里 
+    ports:
+      - 3001:3000 # 对外暴露端口
+    command: bash -c "npx prisma generate && npm run dev" # 容器内启动命令
+
+    environment:
+      - PG_HOST=db # 设置数据库主机名为db    
+    depends_on:
+      - db
+```
+
+使用方法:
+
+```bash
+docker-compose -f docker-compose.dev.yml up
+```
+
+#### 生产环境
+
+文件名：`docker-compose.prod.yml`
+
+```yaml
+version: '3.1'
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=myuser
+      - POSTGRES_PASSWORD=mypassword
+
+  nextjs:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+    environment:
+      - PG_HOST=db
+      - NODE_ENV=production
+    ports:
+      - 3001:3000
+    depends_on:
+      - db
+```
+
+请注意，我们在生产环境的配置中添加了一个 **`build`** 指令，该指令引用一个名为 **`Dockerfile.prod`** 的 Dockerfile。为此我们还需要创建 Dockerfile，以确保正确构建和优化生产环境。
+
+一个基本的 **`Dockerfile.prod`** 为 Next.js 应用可能是这样的:
+
+```docker
+# 使用官方 Node.js 镜像作为基础镜像
+FROM node:18
+
+# 设置工作目录
+WORKDIR /app/app
+
+# 复制 package.json 和 package-lock.json 到工作目录
+COPY package*.json ./
+
+# 安装依赖
+RUN npm install
+
+# 复制应用代码到工作目录
+COPY . .
+
+# 构建应用
+RUN npm run build
+
+# 设置运行时命令
+CMD ["npm", "start"]
+```
+
+使用方法:
+
+```bash
+docker-compose -f docker-compose.prod.yml up --build
+```
+
+- **`-build`** 参数确保在启动容器之前先构建镜像。
+
+现在重新打开`http://localhost:8080`和`http://localhost:3001`，会发现`http://localhost:8080`无法打开，因为生产配置里没有启动 adminer。
+
+#### 部署到生产服务器
+
+先查看本地有哪些 Docker 镜像
+
+```bash
+docker images
+```
+
+构建本地镜像
+
+```bash
+docker-compose -f docker-compose.prod.yml build
+```
+
+保存镜像
+
+```bash
+docker save -o output_filename.tar image_name:tag
+```
+
+`image_name:tag`要用实际值，如图：
+
+![docker2.png](/assets/010/docker2.png)
+
+到处完成后，就可以在根目录看到`output_filename.tar`了
+
+上传到服务器后，用load命令加载
+
+```bash
+docker load -i your_image_name.tar
+```
+
+确保`docker-compose.prod.yml`也上传到服务器了，然后执行启动命令
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+这样 Docker 的部署流程就算完成了。
+
+## 结语
+
+Docker 已经成为现代软件开发中的一个不可或缺的工具。它为开发者提供了一个高度一致、隔离且可移植的环境，使得从开发到生产的过程变得更加流畅和可预测。
+
+对于前端工程师而言，虽然 Docker 可能最初看起来有些复杂，但一旦你掌握了其基本概念和操作，你将发现它能极大地提高工作效率和应用的部署稳定性。
+
+在这篇文章中，我们探讨了 Docker 和 Docker Compose 的基本概念、配置和常见问题。希望能为你打开新的大门，帮助你更好地理解和利用 Docker 的强大功能。
+
+## 源码与演示
+
+源码：👉[Docker](https://github.com/weijunext/nextjs-learn-demos/tree/docker)
+
+在线演示：👉[Docker启动项目](https://nextjs.weijunext.com/)
+
+## 专栏资源
+
+专栏介绍：以实战的角度进行Next.js生态圈的技术栈分享，内容包括但不限于：Next.js理论知识、功能模块设计思路、实战中使用到的技术栈。这是一个长期更新的专栏，我会持续把自己的思考和经验提炼分享出来，欢迎关注我的专栏👇
+
+专栏地址：👉[Next.js生态圈实战](/tag/NextJS%E5%AE%9E%E6%88%98)
+
+专栏演示站：👉[Next.js Demos](https://nextjs.weijunext.com)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)

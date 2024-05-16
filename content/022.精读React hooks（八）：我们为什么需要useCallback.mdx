@@ -1,0 +1,240 @@
+---
+title: 精读React hooks（八）：我们为什么需要useCallback
+description: 本文对 React 的useCallback钩子进行了详细的探讨，解释了其背后的原理、与useMemo的对比、合适的应用场景以及如何正确使用。
+slug: react-hook-useCallback
+slugId: 0db6ef00-d058-4204-8502-0990d06d0a4b
+tags: React
+date: 2023-09-12
+---
+
+在[精读useMemo的文章](/article/react-hook-useMemo)里，我们知道`useMemo`也可以缓存函数，但React官方更推荐使用`useCallback`来缓存函数。本文就来探讨一下`useCallback`的用法以及我们为什么需要`useCallback`。
+
+## 什么是`useCallback`
+
+`useCallback`是对`useMemo`的特化，它可以返回一个缓存版本的函数，只有当它的依赖项改变时，函数才会被重新创建。这意味着如果依赖没有改变，函数引用保持不变，从而避免了因函数引用改变导致的不必要的重新渲染。
+
+`useCallback`背后的原理是利用闭包和React的调度机制来存储并在必要时重建函数。与直接在组件内创建函数相比，使用`useCallback`需要付出额外的开销，因为它涉及到存储和检索函数的机制。因此，除非在特定的性能敏感场景中（例如大型列表渲染、频繁的状态更新、与`React.memo`一同使用等），否则不建议盲目使用它。
+
+## 为什么需要`useCallback`
+
+想象这个场景：你有一个`React.memo`化的子组件，该子组件接受一个父组件传递的函数作为 prop。如果父组件重新渲染，而且这个函数是在父组件的函数体内定义的，那么每次父组件渲染时，都会为子组件传递一个新的函数实例。这可能会导致子组件不必要地重新渲染，即使该函数的实际内容没有任何变化。
+
+`useCallback`的主要目的是解决这样的问题。它确保，除非依赖项发生变化，否则函数实例保持不变。这可以防止因为父组件的非相关渲染而导致的子组件的不必要重新渲染。
+
+当然，`useCallback`真正的应用场景不仅于此，它还可以用于其他需要稳定引用的场景，例如事件处理器、`setTimeout/setInterval`的回调、函数用于`useEffect`、`useMemo`或`useCallback`等的依赖项、或其他可能因为函数引用改变而导致意外行为的场合。
+
+## 如何使用`useCallback`
+
+`useCallback`的基本使用如下：
+
+```jsx
+const memoizedCallback = useCallback(
+  () => {
+    // 函数体
+  },
+  [dependency1, dependency2, ...] // 依赖数组
+);
+```
+
+只有当`dependency1`、`dependency2`等依赖发生改变时，函数才会重新创建。这对于`React.memo`化的组件、`useEffect`、`useMemo`等钩子的输入特别有用，因为它们都依赖于输入的引用恒定性。
+
+来看个示例：
+
+假设我们有一个`TodoList`组件，其中有一个`TodoItem`子组件：
+
+```jsx
+function TodoItem({ todo, onDelete }) {
+  console.log("TodoItem render:", todo.id);
+  return (
+    <div>
+      {todo.text}
+      <button onClick={() => onDelete(todo.id)}>Delete</button>
+    </div>
+  );
+}
+
+function TodoList() {
+  const [todos, setTodos] = useState([
+    { id: 1, text: "Learn React" },
+    { id: 2, text: "Learn useCallback" }
+  ]);
+
+  const handleDelete = id => {
+    setTodos(todos => todos.filter(todo => todo.id !== id));
+  };
+
+  return (
+    <div>
+      {todos.map(todo => (
+        <TodoItem key={todo.id} todo={todo} onDelete={handleDelete} />
+      ))}
+    </div>
+  );
+}
+```
+
+上述代码中，每次`TodoList`重新渲染时，`handleDelete`都会被重新创建，导致`TodoItem`也重新渲染。为了优化这一点，我们可以使用`useCallback`：
+
+```jsx
+const handleDelete = useCallback(id => {
+  setTodos(todos => todos.filter(todo => todo.id !== id));
+}, []);
+```
+
+在这种情况下，`handleDelete`只会在组件首次渲染时被创建一次。
+
+## `useMemo`和`useCallback`的差异
+
+**用途与缓存的内容不同：**
+
+- `useMemo`: 用于缓存复杂函数的计算结果或者构造的值。它返回缓存的结果。
+- `useCallback`: 用于缓存函数本身，确保函数的引用在依赖没有改变时保持稳定。
+
+**底层关联：**
+
+- 从本质上说，`useCallback(fn, deps)`就是`useMemo(() => fn, deps)`的语法糖:
+
+```jsx
+function useCallback(fn, dependencies) {
+  return useMemo(() => fn, dependencies);
+}
+```
+
+这里有一个用户评论系统示例，`CommentsPage`组件可显示文章的评论并允许用户提交新评论：
+
+```jsx
+import React, { useMemo, useCallback } from 'react';
+
+function CommentsPage({ articleId, user }) {
+  // 假设 fetchComments 是一个获取评论数据的函数
+  const comments = fetchComments('/comments/' + articleId);
+
+  // 对评论数据进行排序
+  const sortedComments = useMemo(() => {
+    return comments.sort((a, b) => new Date(b.date) - new Date(a.date));
+  }, [comments]);
+
+  // 处理新评论的提交
+  const handleCommentSubmit = useCallback((commentText) => {
+    post('/comments/' + articleId, {
+      author: user,
+      text: commentText
+    });
+  }, [articleId, user]);
+
+  return (
+    <div>
+      <CommentList comments={sortedComments} />
+      <CommentForm onSubmit={handleCommentSubmit} />
+    </div>
+  );
+}
+```
+
+在这个示例中，`useMemo`和`useCallback`用途如下：
+
+- `useMemo`用途：`sortedComments`通过对`comments`数据按日期进行排序得到。我们不希望每次`CommentsPage`重新渲染时都重新排序评论，除非`comments`发生变化。因此，我们使用`useMemo`来缓存排序结果。
+- `useCallback`用途：对于`handleCommentSubmit`函数，我们不希望它在`articleId`或`user`保持不变的情况下有一个新的引用。因此，我们使用`useCallback`来确保函数引用的稳定性。
+
+## 什么时候使用`useCallback`
+
+使用`useCallback`不意味着总是会带来性能提升，这是对`useCallback`使用场景的简单总结：
+
+**使用`useCallback`：**
+
+1. **子组件的性能优化**：当你将函数作为 prop 传递给已经通过`React.memo`进行优化的子组件时，使用`useCallback`可以确保子组件不会因为父组件中的函数重建而进行不必要的重新渲染。
+2. **Hook 依赖**：如果你正在传递的函数会被用作其他 Hook（例如`useEffect`）的依赖时，使用`useCallback`可确保函数的稳定性，从而避免不必要的副作用的执行。
+3. **复杂计算与频繁的重新渲染**：在应用涉及很多细粒度的交互，如绘图应用或其它需要大量操作和反馈的场景，使用`useCallback`可以避免因频繁的渲染而导致的性能问题。
+
+**避免使用`useCallback`：**
+
+1. **过度优化**：在大部分情况下，函数组件的重新渲染并不会带来明显的性能问题，过度使用`useCallback`可能会使代码变得复杂且难以维护。
+2. **简单组件**：对于没有经过`React.memo`优化的子组件或者那些不会因为 prop 变化而重新渲染的组件，使用`useCallback`是不必要的。
+3. **使代码复杂化**：如果引入`useCallback`仅仅是为了“可能会”有性能提升，而实际上并没有明确的证据表明确实有性能问题，这可能会降低代码的可读性和可维护性。
+4. **不涉及其它 Hooks 的函数**：如果一个函数并不被用作其他 Hooks 的依赖，并且也不被传递给任何子组件，那么没有理由使用`useCallback`。
+
+除此之外，我们还要注意针对`useCallback`的依赖项设计，我们需要警惕非必要依赖的混入，造成`useCallback`的效果大打折扣。例如这个非常典型的案例：
+
+```jsx
+function TodoList() {
+  const [todos, setTodos] = useState([]);
+  const [inputValue, setInputValue] = useState("");
+
+  const handleInputChange = (event) => {
+    setInputValue(event.target.value);
+  };
+
+  const handleAddTodo = useCallback((text) => {
+    const newTodo = { id: Date.now(), text };
+    setTodos((prevTodos) => [...prevTodos, newTodo]);
+  }, [todos]);  // 这里是问题所在，todos的依赖导致这个useCallback几乎失去了其作用
+
+  return (
+    <div>
+      <input value={inputValue} onChange={handleInputChange} />
+      <button onClick={() => handleAddTodo(inputValue)}>Add Todo</button>
+      <ul>
+        {todos.map(todo => <li key={todo.id}>{todo.text}</li>)}
+      </ul>
+    </div>
+  );
+}
+```
+
+在上面的示例中，每当`todos`改变，`handleAddTodo`都会重新创建，尽管我们使用了`useCallback`。这实际上并没有给我们带来预期的性能优化。正确的做法是利用`setTodos`的函数式更新，这样我们就可以去掉`todos`依赖：
+
+```jsx
+const handleAddTodo = useCallback((text) => {
+  const newTodo = { id: Date.now(), text };
+  setTodos((prevTodos) => [...prevTodos, newTodo]);
+}, []);  // 注意这里的空依赖数组
+```
+
+## 结语
+
+`useCallback`的思想和`useMemo`如出一辙，因为[精读useMemo的文章](/article/useMemo)和[演示站](https://nextjs.weijunext.com/hooks/useMemo)里已经提供了对照示例，所以本文只对`useCallback`进行解读分析，没有单独提供线上示例。如需验证`useCallback`缓存的效果，大家可以自己敲一敲示例代码来验证。
+
+
+## 专栏资源
+
+专栏博客地址：[精读React Hooks](/tag/React)
+
+专栏演示站：[React Hooks Demos](https://nextjs.weijunext.com/hooks)
+
+专栏源码仓库：👉[Github - Source Code](https://github.com/weijunext/nextjs-learn-demos)
+
+交个朋友：👉[加入「独立全栈交流群」](/make-a-friend)
+
+专栏文章列表：
+
+[精读React hooks（一）：useState 的几个基础用法和进阶技巧](/article/react-hook-useState)
+
+[精读React hooks（二）：React状态管理的强大工具——useReducer](/article/react-hook-useReducer)
+
+[精读React hooks（三）：useContext从基础应用到性能优化](/article/react-hook-useContext)
+
+[精读React hooks（四）：useRef的多维用途](/article/react-hook-useRef)
+
+[精读React hooks（五）：useEffect使用细节知多少？](/article/react-hook-useEffect)
+
+[精读React hooks（六）：useLayoutEffect解决了什么问题？](/article/react-hook-useLayoutEffect)
+
+[精读React hooks（七）：用useMemo来减少性能开销](/article/react-hook-useMemo)
+
+[精读React hooks（八）：我们为什么需要useCallback](/article/react-hook-useCallback)
+
+[精读React hooks（九）：使用useTransition进行非阻塞渲染](/article/react-hook-useTransition)
+
+[精读React hooks（十）：使用useDeferredValue延迟状态更新](/article/react-hook-useDeferredValue)
+
+[精读React hooks（十一）：useInsertionEffect——CSS-in-JS样式注入新方式](/article/react-hook-useInsertionEffect)
+
+[精读React hooks（十二）：使用useImperativeHandle能获得什么能力](/article/react-hook-useImperativeHandle)
+
+[精读React hooks（十三）：使用useSyncExternalStore获取实时数据](/article/react-hook-useSyncExternalStore)
+
+[精读React hooks（十四）：总有一天你会需要useId为你生成唯一id](/article/react-hook-useId)
+
+[精读React hooks（十五）：把useDebugValue加入你的React调试工具库](/article/react-hook-useDebugValue)
+
+[精读React hooks（十六）：一个为代码优雅而生的hook——use](/article/react-hook-use)

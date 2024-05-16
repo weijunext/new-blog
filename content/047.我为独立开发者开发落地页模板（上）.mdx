@@ -1,0 +1,620 @@
+---
+title: 我为独立开发者开发落地页模板（上）
+description: 如何开发一个通用的落地页模板，这不就来了
+slug: ship-langding-page-fast1
+tags: NextJS,NextJS实战
+date: 2024-05-07
+---
+
+前段时间，[indie-hacker-tools 仓库](https://github.com/weijunext/indie-hacker-tools)收到一个这样的 issues：
+
+![01.need-langding-page.png](/assets/047/01.need-langding-page.png)
+
+我的第一反应是，不同产品、不同阶段的落地页展示的侧重点差异大，很难有一个适用大多数场景的模板。
+
+几天后再打开这个 issues，又想到落地页的核心作用是介绍产品、吸引用户使用产品，那么应该是有共性的。于是我去找了一些落地页分析，果然，虽然大家的落地页设计不同、布局不同，但围绕着“介绍产品、吸引用户”的需求，每个落地页的整体框架是类似的，就是像下面这个图一样：
+
+![落地页页面框架.png](/assets/047/page.png)
+
+我觉得可以根据这个整体框架，设计一个通用的落地页模板。我给这个模板的定位是：可以让80%的人修改文字和图片即可发布自己的落地页，另外20%的人可以根据自己产品调性、设计喜好手动修改代码完成自己的落地页。
+
+本教程分**两篇文章**介绍：
+
+第一篇（本文）：项目搭建和基础配置集成
+
+第二篇：落地页内容开发
+
+学完本教程你可以学到：
+
+- 更合理的 Next.js 项目结构设计（第一篇）
+- 网站信息统一配置（第一篇）
+- 百度统计、谷歌分析的集成（第一篇）
+- Shadcn/ui 的使用（第一篇）
+- 落地页的核心内容设计和开发（第二篇）
+- 多语言支持（第二篇）
+- 暗黑模式支持（第二篇）
+- 用 framer-motion 实现内容动画（第二篇）
+- 为你的工作流增加几个实用工具（两篇都有）
+
+本项目已开源，欢迎fork，感谢star🌟：https://github.com/weijunext/landing-page-boilerplate
+
+## 开始搭建项目
+
+~~鲁迅~~我曾经说过：重复的劳动是对程序员的亵渎。
+
+所以，我不再从0创建项目，我用自己发布的开源项目——**clean-nextjs-starter** 进行初始化项目，用法如下：
+
+打开👉[clean-nextjs-starter default分支](https://github.com/weijunext/clean-nextjs-starter/tree/default)，通过 **use this template** 创建项目
+
+![create-repo.png](/assets/047/create-repo.png)
+
+default 分支是一个0集成的模板，只提供了最基础的布局。
+
+创建完项目后，clone 到本地，项目文件夹结构是这样的：
+
+```tsx
+├─ app             # 应用入口
+│  ├─ layout.tsx
+│  ├─ page.tsx
+│  └─ sitemap.ts
+├─ components      # 组件
+│  ├─ ……
+├─ config          # 网站配置
+│  └─ site.ts
+├─ lib             # 公共工具类
+│  ├─ ……
+├─ public          # 公共静态资源
+│  ├─ ……
+├─ styles          # 样式
+│  ├─ ……
+├─ types           # ts类型定义
+│  ├─ ……
+├─ .editorconfig
+├─ .env.example
+├─ .env.local
+├─ .eslintrc.json
+├─ .gitignore
+├─ components.json
+├─ next-env.d.ts
+├─ next.config.mjs
+├─ package-lock.json
+├─ package.json
+├─ postcss.config.js
+├─ README-zh.md
+├─ README.md
+├─ tailwind.config.ts
+├─ tsconfig.json
+```
+
+文件夹结构依次划分了页面入口、组件、网站配置、工具类、静态资源、样式、类型定义等分类，看起来很繁琐，但这绝对是高可拓展的项目结构最佳实践。
+
+项目启动后可以看到首页如下：
+
+![03.starter screenshot.png](/assets/047/03.starter_screenshot.png)
+
+这是一个典型的上中下结构的设计。Header 和 Footer 都用简约的风格，并且是响应式设计，启动模板已经把 Header 和 Footer 显示的外链抽离到项目配置文件，如果你认可这样的设计，那么你只需要修改配置文件 `config/site.ts` 就可以完成自己项目的 Header 和 Footer。
+
+目前，这套 Header 和 Footer 已经成为我的产品的默认设计了。
+
+## 网站信息统一配置
+
+把这套模板修改成自己网站的第一步就是修改配置文件 `config/site.ts`，你需要把自己网站的信息填充进去。
+
+重要的配置含义看下面的代码注释：
+
+```tsx
+import { SiteConfig } from "@/types/siteConfig";
+import { BsGithub, BsTwitterX, BsWechat } from "react-icons/bs";
+import { MdEmail } from "react-icons/md";
+import { SiBuymeacoffee, SiJuejin } from "react-icons/si";
+
+const baseSiteConfig = {
+	// 网站名称
+  name: "Landing page boilerplate",
+	// 网站描述
+  description:
+    "A versatile landing page boilerplate, ideal for various projects and marketing campaigns.",
+  // 网站地址
+	url: "https://landingpage.weijunext.com",
+	// og是社交媒体上可展示的图片，如果没有专门设计og，也建议截图一张页面
+  ogImage: "https://landingpage.weijunext.com/og.png",
+	// 设置 metadata 字段前缀，默认是根目录
+  metadataBase: new URL("/"),
+  keywords: ["landing page boilerplate", "landing page template", "awesome landing page", "next.js landing page"],
+  authors: [
+    {
+      name: "weijunext",
+      url: "https://weijunext.com",
+      twitter: 'https://twitter.com/weijunext',
+    }
+  ],
+  creator: '@weijunext',
+  themeColor: '#fff',
+	// 图标
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon-16x16.png",
+    apple: "/apple-touch-icon.png",
+  },
+	// Header 上的外链信息
+  headerLinks: [
+    { name: 'repo', href: "https://github.com/weijunext/landing-page-boilerplate", icon: BsGithub },
+    { name: 'twitter', href: "https://twitter.com/weijunext", icon: BsTwitterX },
+    { name: 'buyMeCoffee', href: "https://www.buymeacoffee.com/weijunext", icon: SiBuymeacoffee }
+  ],
+	// Footer 上的联系信息
+  footerLinks: [
+    { name: 'email', href: "mailto:weijunext@gmail.com", icon: MdEmail },
+    { name: 'twitter', href: "https://twitter.com/weijunext", icon: BsTwitterX },
+    { name: 'github', href: "https://github.com/weijunext/", icon: BsGithub },
+    { name: 'buyMeCoffee', href: "https://www.buymeacoffee.com/weijunext", icon: SiBuymeacoffee },
+    { name: 'juejin', href: "https://juejin.cn/user/26044008768029", icon: SiJuejin },
+    { name: 'weChat', href: "/make-a-friend", icon: BsWechat }
+  ],
+	// Footer 上的个人产品链接
+  footerProducts: [
+    { url: 'https://weijunext.com/', name: 'J实验室' },
+    { url: 'https://githubbio.com', name: 'Github Bio Generator' },
+    { url: 'https://smartexcel.cc/', name: 'Smart Excel' },
+    { url: 'https://landingpage.weijunext.com/', name: 'Landing Page Boilerplate' },
+    { url: 'https://starter.weijunext.com/', name: 'Next.js Starter' },
+    { url: 'https://nextjs.weijunext.com/', name: 'Next.js Practice' },
+    { url: 'https://github.com/weijunext/indie-hacker-tools', name: 'Indie Hacker Tools' },
+  ]
+}
+
+export const siteConfig: SiteConfig = {
+  ...baseSiteConfig,
+	// 配置了 openGraph 和 twitter，当用户在社交媒体和消息应用程序上
+	// 分享指向你的网站时，链接会显示你在配置的图像。
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    url: baseSiteConfig.url,
+    title: baseSiteConfig.name,
+    description: baseSiteConfig.description,
+    siteName: baseSiteConfig.name,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: baseSiteConfig.name,
+    description: baseSiteConfig.description,
+    images: [`${baseSiteConfig.url}/og.png`],
+    creator: baseSiteConfig.creator,
+  },
+}
+```
+
+## 修改网站 logo、**robots、sitemap**
+
+1. 依次替换掉 public 文件夹下的图片资源，也可以等到网站开发完成再替换
+2. 更新 `public/robots.txt` 文件，其中网站填你自己的网站：
+    
+    ```tsx
+    # *
+    User-agent: *
+    Allow: /
+    
+    # AhrefsBot
+    User-agent: AhrefsBot
+    Disallow: /
+    
+    # SemrushBot
+    User-agent: SemrushBot
+    Disallow: /
+    
+    # MJ12bot
+    User-agent: MJ12bot
+    Disallow: /
+    
+    # DotBot
+    User-agent: DotBot
+    Disallow: /
+    
+    # Host
+    Host: https://landingpage.weijunext.com
+    
+    # Sitemaps
+    Sitemap: https://landingpage.weijunext.com/sitemap.xml
+    ```
+    
+    这里的配置已经过滤掉一些常见的无效爬虫了。
+    
+3. 修改 `app/sitemap.ts` 文件，因为落地页只有一个页面，所以我们不需要复杂的 sitemap 自动化配置，只要手动写一个链接就可以：
+    
+    ```tsx
+    import { MetadataRoute } from 'next'
+    
+    export default function sitemap(): MetadataRoute.Sitemap {
+      return [
+        {
+          url: 'https://landingpage.weijunext.com',
+          lastModified: new Date(),
+          changeFrequency: 'daily',
+          priority: 0.5,
+        },
+      ]
+    }
+    ```
+    
+
+## 集成百度统计、谷歌分析
+
+为什么建议一开始就集成数据统计呢？因为网站上线后，我们需要了解网站流量来源、分析用户行为等，有了数据才能驱动我们决策更新，百度统计和谷歌分析正好可以为我们提供这方面的数据。
+
+### 集成百度统计
+
+1. 登录百度统计官网：https://tongji.baidu.com/
+2. 进入使用设置，新增网站
+    
+    ![04.百度统计入口.png](/assets/047/04.baidutongji1.png)
+    
+3. 填写网站信息
+    
+    ![05.百度统计填写网站信息.png](/assets/047/05.baidutongji2.png)
+    
+4. 获取统计代码。
+    
+    ![06.百度统计key.png](/assets/047/06.baidutongji3.png)
+    
+5. 在 app 文件夹下新建文件 `BaiDuAnalytics.tsx`：
+    
+    ```tsx
+    "use client";
+    
+    import Script from "next/script";
+    
+    const BaiDuAnalytics = () => {
+      return (
+        <>
+          {process.env.NEXT_PUBLIC_BAIDU_TONGJI ? (
+            <>
+              <Script
+                id="baidu-tongji"
+                strategy="afterInteractive"
+                dangerouslySetInnerHTML={{
+                  __html: `
+                  var _hmt = _hmt || [];
+                  (function() {
+                    var hm = document.createElement("script");
+                    hm.src = "https://hm.baidu.com/hm.js?${process.env.NEXT_PUBLIC_BAIDU_TONGJI}";
+                    var s = document.getElementsByTagName("script")[0]; 
+                    s.parentNode.insertBefore(hm, s);
+                  })();
+                `,
+                }}
+              />
+            </>
+          ) : (
+            <></>
+          )}
+        </>
+      );
+    };
+    
+    export default BaiDuAnalytics;
+    
+    ```
+    
+6. 在 .env 或 .env.local 文件里添加环境变量：
+    
+    ```tsx
+    NEXT_PUBLIC_BAIDU_TONGJI=xxxxx
+    # xxxxx 是第4步获取的统计id
+    ```
+    
+
+### 集成谷歌分析
+
+1. 登录谷歌分析官网：https://analytics.google.com/analytics/web
+2. 依次创建账号(如果还没创建)和媒体资源
+    
+    ![07.谷歌分析创建入口.png](/assets/047/07.ga1.png)
+    
+3. 依次填写网站信息，获取统计id
+    
+    ![08.获取数据流id.png](/assets/047/08.ga2.png)
+    
+4. 在项目根目录创建 `gtas.js`
+    
+    ```tsx
+    export const GA_TRACKING_ID = process.env.NEXT_PUBLIC_GOOGLE_ID || null;
+    
+    export const pageview = (url) => {
+      window.gtag("config", GA_TRACKING_ID, {
+        page_path: url,
+      });
+    };
+    
+    export const event = ({ action, category, label, value }) => {
+      window.gtag("event", action, {
+        event_category: category,
+        event_label: label,
+        value: value,
+      });
+    };
+    ```
+    
+5. 在 app 文件夹下创建 `GoogleAnalytics.tsx`
+    
+    ```tsx
+    "use client";
+    
+    import Script from "next/script";
+    import * as gtag from "../gtag.js";
+    
+    const GoogleAnalytics = () => {
+      return (
+        <>
+          {gtag.GA_TRACKING_ID ? (
+            <>
+              <Script
+                strategy="afterInteractive"
+                src={`https://www.googletagmanager.com/gtag/js?id=${gtag.GA_TRACKING_ID}`}
+              />
+              <Script
+                id="gtag-init"
+                strategy="afterInteractive"
+                dangerouslySetInnerHTML={{
+                  __html: `
+                    window.dataLayer = window.dataLayer || [];
+                    function gtag(){dataLayer.push(arguments);}
+                    gtag('js', new Date());
+                    gtag('config', '${gtag.GA_TRACKING_ID}', {
+                    page_path: window.location.pathname,
+                    });
+                  `,
+                }}
+              />
+            </>
+          ) : (
+            <></>
+          )}
+        </>
+      );
+    };
+    
+    export default GoogleAnalytics;
+    ```
+    
+6. 在 .env 或 .env.local 文件里添加环境变量：
+    
+    ```tsx
+    NEXT_PUBLIC_GOOGLE_ID=G-xxxxxx
+    # 添加第3步获取的 G-xxxxx 格式的id
+    ```
+    
+
+### 在 body 中导入分析组件
+
+在 app/layout.tsx 文件里导入百度统计和谷歌分析的组件
+
+```tsx
+import BaiDuAnalytics from "@/app/BaiDuAnalytics";
+import GoogleAnalytics from "@/app/GoogleAnalytics";
+
+// 省略其他代码……
+
+export default async function RootLayout({ children }) {
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head />
+      <body>
+         {/* 省略其他代码 */}
+        {process.env.NODE_ENV === "development" ? (
+					 {/* 开发环境不会进行数据统计 */}
+          <></>
+        ) : (
+          <>
+            <GoogleAnalytics />
+            <BaiDuAnalytics />
+          </>
+        )}
+      </body>
+    </html>
+  );
+}
+
+```
+
+为了避免开发环境访问造成数据不准确，我们添加了环境判断，开发环境不会进行数据统计。
+
+## 页面开发
+
+教程第一篇的最后一步，划分页面内容模块。我们按照文章开篇分析的页面框架进行划分模块。
+
+### 引入 Shadcn/ui
+
+在 Next.js 社区，最热门的组件库非属 `shadcn/ui` 不可。这个组件库虽然才发布一年，但因为独特的设计思路——导入方式提供源码而非打包后的执行码——而广受社区欢迎。
+
+我们的启动模板已经支持了 `shadcn/ui`，如果你还不了解这个库，可以用以下方式安装：
+
+```tsx
+npx shadcn-ui@latest init
+```
+
+根据提示选择你想要的配置：
+
+```
+Would you like to use TypeScript (recommended)? no / yes
+Which style would you like to use? › Default
+Which color would you like to use as base color? › Blue
+Where is your global CSS file? › › app/globals.css
+Do you want to use CSS variables for colors? › no / yes
+Are you using a custom tailwind prefix eg. tw-? (Leave blank if not) ...
+Where is your tailwind.config.js located? › tailwind.config.js
+Configure the import alias for components: › @/components
+Configure the import alias for utils: › @/lib/utils
+Are you using React Server Components? › no / yes
+```
+
+安装完成后，就可以单独引入你需要的组件，例如：
+
+```
+npx shadcn-ui@latest add button
+```
+
+这样就可以在 `components/ui` 文件夹下看到 `Button` 组件。如果你认为组件提供的样式有问题，你甚至可以直接在 `components/ui` 文件夹下修改组件代码。
+
+### 页面框架搭建
+
+本文主要涉及整体的设计思路，所以只提供页面框架，下一篇文章会对每一个模块展开介绍，并完成最终的开发工作。
+
+现在先按照划分的页面逻辑，为落地页创建组件：
+
+```tsx
+├── components
+│   │── Home
+│   │   │── Introduction.tsx             # 产品介绍
+│   │   │── BuyButton.tsx                # 引导购买按钮（调用两次）
+│   │   │── UserPurchaseAvatar.tsx       # 已购买用户展示
+│   │   │── Feature.tsx                  # 特性介绍
+│   │   │── Price.tsx                    # 价格展示
+│   │   │── WallOfLove.tsx               # 客户评价
+│   │   │── FQA.tsx                      # FQA
+```
+
+这是落地页框架的设计思路：
+
+- 页面顶部大字号显示 slogan 和介绍，要追求把用户的注意力聚焦到我们的落地页
+- 对于了解过产品的人，可能不需要看整个落地页的信息就有购买意愿，所以顶部要留一个购买按钮
+- 接下来展示能表示产品受欢迎的信息，例如已购用户的列表、合作伙伴、媒体报道等
+- 产品特性介绍，这是落地页的核心信息之一，所以应该加到 Header 的锚点上
+- 价格是用户最关系的信息，所以也应该加到 Header 的锚点上
+- 展示客户评价的模块，英文中称作「Wall of Love」，当用户看完特性和价格后仍未下定决心购买服务，那么一个好的 Wall of Love 模块可能会帮助你说服潜在用户下决心购买
+- FQA 是预设用户可能疑惑的问题进行解答，在落地页中不是必须的
+- 在落地页末尾，一定要再次引导购买，所以再放一个购买按钮
+
+### Header 添加锚点
+
+现在落地页整体框架都搭建好了，我们可以在 Header 上添加锚点了。
+
+我们用id来定义锚点，给每一个组件都定义一个id：
+
+```tsx
+import BuyButton from "@/components/Home/BuyButton";
+import FQA from "@/components/Home/FQA";
+import Feature from "@/components/Home/Feature";
+import Introduction from "@/components/Home/Introduction";
+import Pricing from "@/components/Home/Pricing";
+import UserPurchaseAvatar from "@/components/Home/UserPurchaseAvatar";
+import WallOfLove from "@/components/Home/WallOfLove";
+
+export default function Home() {
+  return (
+    <>
+      <Introduction />
+      <UserPurchaseAvatar />
+      <Feature id="Feature" />
+      <Pricing id="Price" />
+      <WallOfLove id="WallOfLove" />
+      <FQA id="FQA" />
+      <BuyButton />
+    </>
+  );
+}
+```
+
+现在到 Header 组件里添加一下锚点跳转按钮：
+
+```tsx
+"use client";
+import HeaderLinks from "@/components/HeaderLinks";
+import { siteConfig } from "@/config/site";
+import { MenuIcon } from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useState } from "react";
+import { CgClose } from "react-icons/cg";
+import { ThemeProvider, ThemedButton } from "./ThemedButton";
+
+const links = [
+  {
+    label: "Features",
+    href: "/#features",
+  },
+  {
+    label: "Pricing",
+    href: "/#pricing",
+  },
+  {
+    label: "WallOfLove",
+    href: "/#WallOfLove",
+  },
+  {
+    label: "FQA",
+    href: "/#FQA",
+  },
+];
+
+const Header = () => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  return (
+    <header className="py-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      <nav className="relative z-50 flex justify-between">
+        <div>{/* 省略logo和名称 */}</div>
+
+				<div>{/* 新增锚点 */}</div>
+        <ul className="hidden items-center gap-8 md:flex">
+          {links.map((link) => (
+            <li key={link.label}>
+              <Link
+                href={link.href}
+                aria-label={link.label}
+                title={link.label}
+                className="tracking-wide transition-colors duration-200 font-norma"
+              >
+                {link.label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+
+        <div>{/* 省略链接按钮 */}</div>
+
+			   <div>{/* 省略响应式的移动端样式 */}</div>
+      </nav>
+    </header>
+  );
+};
+
+export default Header;
+```
+
+实测体验一下，锚点点击可以正确跳转。
+
+## 总结
+
+通过本文的实践，我们已经学到落地页的设计思路和落地页框架的搭建、更合理的 Next.js 的项目结构设计和网站信息统一配置、百度统计、谷歌分析、shadcn/ui 等第三方工具和库的使用。
+
+下一篇文章我们将对落地页各个模块的设计进行思考和实践、引入动画库实现更有吸引力的落地页效果、完善多语言支持和暗黑模式，让我们的落地页能够吸引到世界上多个地区的用户。
+
+相关资源：
+
+[👉落地页模板开发讲解（一）](/article/ship-langding-page-fast1)
+
+[👉落地页模板开发讲解（二）](/article/ship-langding-page-fast2)
+
+[👉落地页模板开源地址](https://github.com/weijunext/landing-page-boilerplate)
+
+[👉落地页线上地址](https://landingpage.weijunext.com/)
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

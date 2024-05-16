@@ -108,6 +108,9 @@ export default function Footer() {
             {authors[0].name}
           </Link>{" "}
           <div>All rights reserved.</div>
+          <Link href="https://beian.miit.gov.cn/" target="_blank">
+            <i className="fas fa-shield-alt" /> 闽ICP备18003908号
+          </Link>
         </div>
       </div>
     </footer>

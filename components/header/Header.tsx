@@ -6,7 +6,7 @@ import Link from "next/link";
 
 const Header = async () => {
   return (
-    <header className="mx-auto max-w-5xl px-4 py-3 border-b border-gray-600 sticky top-0 bg-background z-50">
+    <header className="mx-auto w-full px-4 py-3 border-b border-gray-600 sticky top-0 bg-background z-50">
       <nav className="relative z-50 flex justify-between">
         <div className="flex items-center md:gap-x-12">
           <Link

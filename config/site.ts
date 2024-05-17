@@ -19,6 +19,9 @@ const baseSiteConfig = {
   ],
   creator: '@weijunext',
   defaultNextTheme: 'dark', // next-theme option: system | dark | light
+  verification: {
+    google: process.env.NEXT_PUBLIC_SEO_GOOGLE_SITE_VERIFICATION || '',
+  },
   icons: {
     icon: "/favicon.ico",
     shortcut: "/logo.png",

@@ -12,6 +12,11 @@ const footerNavigation = {
     { name: "友链", href: "/links", target: "_self" },
     { name: "赞助榜", href: "/thanks", target: "_self" },
     { name: "关于我", href: "/make-a-friend", target: "_self" },
+    {
+      name: "版权声明",
+      href: "https://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh-hans",
+      nofollow: true,
+    },
   ],
   openSource: [
     { name: "Smart Excel AI", href: "https://smartexcel.cc/" },
@@ -48,6 +53,7 @@ export default function Footer() {
         name: string;
         href: string;
         target?: string;
+        nofollow?: boolean;
       }[];
     }) => (
       <div>
@@ -60,6 +66,7 @@ export default function Footer() {
                 href={item.href}
                 size="sm"
                 target={item.target || "_blank"}
+                rel={item.nofollow ? "noopener noreferrer nofollow" : ""}
               >
                 {item.name}
               </Link>
@@ -116,20 +123,23 @@ export default function Footer() {
           </div>
         </div>
         <Divider className="mt-16" />
-        <div className="flex space-x-2">
-          <div>{`©${currentYear}`}</div>{" "}
-          <Link href={authors[0].twitter || authors[0].url} target="_blank">
-            {authors[0].name}
-          </Link>{" "}
-          <div>All rights reserved.</div>
-          {process.env.NEXT_PUBLIC_BEI_AN ? (
-            <Link href="https://beian.miit.gov.cn/" target="_blank">
-              <i className="fas fa-shield-alt" />{" "}
-              {process.env.NEXT_PUBLIC_BEI_AN}
-            </Link>
-          ) : (
-            <></>
-          )}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
+          <div className="flex space-x-2">
+            <div>{`©${currentYear}`}</div>{" "}
+            <Link href={authors[0].twitter || authors[0].url} target="_blank">
+              {authors[0].name}
+            </Link>{" "}
+            <div>All rights reserved.</div>
+          </div>
+          <div>
+            {process.env.NEXT_PUBLIC_BEI_AN ? (
+              <Link href="https://beian.miit.gov.cn/" target="_blank">
+                {process.env.NEXT_PUBLIC_BEI_AN}
+              </Link>
+            ) : (
+              <></>
+            )}
+          </div>
         </div>
       </div>
     </footer>

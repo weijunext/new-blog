@@ -8,10 +8,14 @@ import { siteConfig } from "@/config/site";
 
 const footerNavigation = {
   blog: [
-    { name: "J实验室", href: "https://weijunext.com/" },
+    { name: "J实验室", href: "https://weijunext.com/", target: "_self" },
+    { name: "友链", href: "/links", target: "_self" },
+    { name: "关于我", href: "/make-a-friend", target: "_self" },
+  ],
+  openSource: [
+    { name: "Smart Excel AI", href: "https://smartexcel.cc/" },
     { name: "Next.js Practice", href: "https://nextjs.weijunext.com/" },
   ],
-  openSource: [{ name: "Smart Excel AI", href: "https://smartexcel.cc/" }],
   boilerplate: [
     { name: "Next.js Clean Starter", href: "https://starter.weijunext.com/" },
     {
@@ -39,14 +43,23 @@ export default function Footer() {
       items,
     }: {
       title: string;
-      items: { name: string; href: string }[];
+      items: {
+        name: string;
+        href: string;
+        target?: string;
+      }[];
     }) => (
       <div>
         <h3 className="text-small font-semibold">{title}</h3>
         <ul className="mt-6 space-y-4">
           {items.map((item) => (
             <li key={item.name}>
-              <Link className="text-default-500" href={item.href} size="sm">
+              <Link
+                className="text-default-500"
+                href={item.href}
+                size="sm"
+                target={item.target || "_blank"}
+              >
                 {item.name}
               </Link>
             </li>
@@ -74,7 +87,7 @@ export default function Footer() {
             <div className="md:grid md:grid-cols-2 md:gap-8">
               <div>
                 {renderList({
-                  title: "博客/教程",
+                  title: "博客",
                   items: footerNavigation.blog,
                 })}
               </div>

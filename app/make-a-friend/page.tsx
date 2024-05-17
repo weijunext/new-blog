@@ -81,7 +81,6 @@ const content = `
 - **微信公众号：**「BigYe程普」
 
 <img src="/gzh.png" alt="程普公众号" width="50%" />
----
-
 欢迎联系我，接受合作与交流！
+
 `;

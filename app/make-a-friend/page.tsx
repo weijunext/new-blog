@@ -18,7 +18,7 @@ export async function generateMetadata() {
   };
 }
 
-export default async function PostDetailsPage() {
+export default async function Page() {
   return (
     <div className="flex flex-row w-full pt-12">
       <aside className="hidden md:block md:w-1/5 pl-6 max-h-[90vh] h-full overflow-auto sticky top-6 left-0"></aside>

@@ -55,6 +55,7 @@ const MDXComponents: MDXComponentsProps = {
       {...props}
     />
   ),
+  hr: (props) => <hr className="border-t border-gray-600" {...props} />,
   p: (props) => <p className="mt-4 mb-4" {...props} />,
   a: (props) => <a className="link-underline" target="_blank" {...props} />,
   ul: (props) => <ul className="list-disc pl-5 mt-0 mb-4" {...props} />,

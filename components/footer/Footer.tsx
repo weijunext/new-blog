@@ -10,6 +10,7 @@ const footerNavigation = {
   blog: [
     { name: "J实验室", href: "https://weijunext.com/", target: "_self" },
     { name: "友链", href: "/links", target: "_self" },
+    { name: "赞助榜", href: "/thanks", target: "_self" },
     { name: "关于我", href: "/make-a-friend", target: "_self" },
   ],
   openSource: [

@@ -7,7 +7,7 @@ const baseSiteConfig = {
   name: "J实验室",
   description:
     "全栈工程师、Next.js开源手艺人、掘金签约作者、折腾才有未来",
-  url: "https://gapis.money",
+  url: "https://weijunext.com",
   metadataBase: '/',
   keywords: ["前端工程师", "前端", "全栈工程师", "全栈", "独立开发者", "indie hacker", "react", "Next.js"],
   authors: [

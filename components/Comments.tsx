@@ -1,6 +1,11 @@
 "use client";
 
-import Giscus, { InputPosition, Mapping, Repo } from "@giscus/react";
+import Giscus, {
+  BooleanString,
+  InputPosition,
+  Mapping,
+  Repo,
+} from "@giscus/react";
 
 export default function Comments() {
   return (
@@ -22,7 +27,9 @@ export default function Comments() {
           // anonymous={process.env.NEXT_PUBLIC_CROSSORIGIN}
           loading="lazy"
           strict="0"
-          reactionsEnabled="1"
+          reactionsEnabled={
+            (process.env.NEXT_PUBLIC_REACTIONS_ENABLED || "0") as BooleanString
+          }
           emitMetadata="0"
         />
       ) : (

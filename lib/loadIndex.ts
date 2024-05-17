@@ -6,10 +6,6 @@ import path from 'path';
 
 const JSON_PATH = path.join(process.cwd(), "public/json/");
 
-interface DocumentIndex {
-  export(callback: (key: string, data: string) => void): void;
-}
-
 // 创建一个 FlexSearch 文档索引
 // Create a FlexSearch document index
 // export const pageIndex = new FlexSearch.Document({

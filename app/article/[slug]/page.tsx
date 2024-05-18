@@ -10,12 +10,36 @@ import dayjs from "dayjs";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 
 const options = {
+  parseFrontmatter: true,
   mdxOptions: {
-    remarkPlugins: [remarkGfm],
-    rehypePlugins: [],
+    remarkPlugins: [remarkGfm, remarkMath],
+    rehypePlugins: [
+      [
+        rehypePrettyCode,
+        {
+          keepBackground: false,
+          defaultLang: {
+            block: "typescript",
+            inline: "javascript",
+          },
+          // getHighlighter: (options) =>
+          //   getHighlighter({
+          //     ...options,
+          //     paths: {
+          //       themes: "https://cdn.jsdelivr.net/npm/shiki@latest/themes",
+          //       wasm: "https://cdn.jsdelivr.net/npm/shiki@latest/dist",
+          //       languages:
+          //         "https://cdn.jsdelivr.net/npm/shiki@latest/languages",
+          //     },
+          //   }),
+        },
+      ],
+    ],
   },
 };
 
@@ -66,7 +90,7 @@ export default async function PostDetailsPage({ params }: Props) {
           <MDXRemote
             source={content}
             components={MDXComponents}
-            options={options}
+            options={options as any}
           />
         </article>
         <Separator className="my-12 bg-gray-600" />

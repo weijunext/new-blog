@@ -9,7 +9,7 @@ import { BlogPost } from "@/types/post";
 import dayjs from "dayjs";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import rehypePrettyCode from "rehype-pretty-code";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -75,6 +75,10 @@ export default async function PostDetailsPage({ params }: Props) {
 
   if (!post) {
     notFound();
+  }
+
+  if (post.slugId && post.slugId === slug) {
+    permanentRedirect(`/article/${post.slug}`);
   }
 
   const { content, title, date } = post;

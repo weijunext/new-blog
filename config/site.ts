@@ -36,7 +36,7 @@ const baseSiteConfig = {
     { name: 'email', href: "mailto:weijunext@gmail.com", icon: MdEmail },
     { name: 'twitter', href: "https://twitter.com/weijunext", icon: BsTwitterX },
     { name: 'github', href: "https://github.com/weijunext", icon: BsGithub },
-    { name: 'buyMeCoffee', href: "https://www.buymeacoffee.com/weijunext", icon: SiBuymeacoffee },
+    // { name: 'buyMeCoffee', href: "https://www.buymeacoffee.com/weijunext", icon: SiBuymeacoffee },
     { name: 'juejin', href: "https://juejin.cn/user/26044008768029", icon: SiJuejin },
     { name: 'weChat', href: "https://weijunext.com/make-a-friend", icon: BsWechat }
   ]

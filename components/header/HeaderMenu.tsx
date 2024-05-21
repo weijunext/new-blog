@@ -11,6 +11,10 @@ const HeaderMenu = () => {
         Hi there
       </Link>
       <div className="hidden md:block text-gray-600">|</div>
+      <Link href="/rss" className="link-default">
+        RSS
+      </Link>
+      <div className="hidden md:block text-gray-600">|</div>
       <Link href="https://gapis.money" className="link-default" target="_blank">
         信息差周刊
       </Link>

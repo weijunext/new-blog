@@ -11,7 +11,7 @@ const HeaderMenu = () => {
         Hi there
       </Link>
       <div className="hidden md:block text-gray-600">|</div>
-      <Link href="/rss" className="link-default">
+      <Link href="/rss.xml" className="link-default">
         RSS
       </Link>
       <div className="hidden md:block text-gray-600">|</div>

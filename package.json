@@ -4,11 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "postbuild": "next-sitemap",
+    "postbuild": "node ./generateRSS.mjs & next-sitemap",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
-    "pages:build": "npx @cloudflare/next-on-pages"
+    "lint": "next lint"
   },
   "dependencies": {
     "@giscus/react": "^3.0.0",
@@ -25,7 +24,9 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "dayjs": "^1.11.10",
+    "dotenv": "^16.4.5",
     "escape-string-regexp": "^5.0.0",
+    "feed": "^4.2.2",
     "flexsearch": "^0.7.43",
     "framer-motion": "^11.0.25",
     "gray-matter": "^4.0.3",
@@ -41,7 +42,10 @@
     "rehype-autolink-headings": "^7.1.0",
     "rehype-pretty-code": "^0.13.2",
     "rehype-slug": "^6.0.0",
+    "remark": "^15.0.1",
+    "remark-gemoji": "^8.0.0",
     "remark-gfm": "3.0.1",
+    "remark-html": "^16.0.1",
     "remark-math": "^6.0.0",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.0",

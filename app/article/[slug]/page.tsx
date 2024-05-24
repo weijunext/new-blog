@@ -85,7 +85,7 @@ export default async function PostDetailsPage({ params }: Props) {
 
   return (
     <div className="flex flex-row w-full pt-12">
-      <aside className="hidden md:block md:w-1/5 pl-6 max-h-[90vh] h-full overflow-auto sticky top-6 left-0">
+      <aside className="hidden md:block md:w-1/5 pl-6 max-h-[90vh] h-full overflow-auto sticky top-16 left-0 mt-6">
         <PostList isSide posts={posts} />
       </aside>
       <div className="w-full md:w-3/5 px-2 md:px-12">
@@ -143,7 +143,7 @@ export default async function PostDetailsPage({ params }: Props) {
         </div>
         <Comments />
       </div>
-      <div className="hidden md:flex flex-col justify-start lg:w-1/5 pr-6">
+      <div className="hidden lg:flex flex-col justify-start lg:w-1/5 pr-6">
         <TOC />
       </div>
     </div>

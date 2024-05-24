@@ -25,7 +25,7 @@ const options = {
           keepBackground: false,
           defaultLang: {
             block: "typescript",
-            inline: "javascript",
+            // inline: "javascript",
           },
           // getHighlighter: (options) =>
           //   getHighlighter({

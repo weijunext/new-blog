@@ -1,0 +1,346 @@
+---
+title: 「译」Next.js 15-rc版本发布
+description: Next.js 15 候选发布版 (RC) 现已发布，这个早期版本允许你在即将发布稳定版之前测试最新功能。
+slug: nextjs-15-rc
+tags: NextJS
+date: 2024-05-24 18:10:10
+---
+
+Next.js 15 候选发布版 (RC) 现已推出。此版本允许你在即将发布的稳定版本之前测试最新功能，更新要点：
+
+- React: 支持 React 19 RC、React Compiler（实验性）和水合错误改进
+
+- 缓存：默认情况下不再缓存 `fetch` 请求、`GET` 路由处理程序和客户端导航
+
+- 部分预渲染（实验性）：增量采用的新布局和页面配置选项
+
+- next/after（实验性）：新的 API 用于在响应完成流式传输后执行代码
+
+- create-next-app：更新设计并添加新标志以在本地开发中启用 Turbopack
+
+- 打包外部包（稳定）：为 App Router 和 Page Router添加新的配置选项
+
+今天就试试 Next.js 15 RC 吧：
+
+```bash
+npm install next@rc react@rc react-dom@rc
+```
+
+> 注意：你可以在 Next.js 15 正式发布 (GA) 之前，通过 [rc.nextjs.org/docs](https://rc.nextjs.org/docs) 查看 Next.js 15 RC 文档。
+
+## React 19 RC
+
+Next.js App Router 基于 React 框架的 [canary 渠道](https://react.dev/blog/2023/05/03/react-canaries)，这使开发人员可以在 v19 发布之前使用并反馈这些新的 React API。
+
+Next.js 15 RC 现在支持 React 19 RC，包括客户端和服务器的新功能，例如 Actions。
+
+阅读 [Next.js 15 升级指南](https://rc.nextjs.org/docs/app/building-your-application/upgrading/version-15)、[React 19 升级指南](https://react.dev/blog/2024/04/25/react-19-upgrade-guide)，并观看 [React Conf Keynote](https://www.youtube.com/live/T8TZQ6k4SLE?t=1788) 以了解更多信息。
+
+> 注意：某些第三方库可能尚不兼容 React 19。
+
+## React Compiler（实验性）
+
+[React Compiler](https://react.dev/learn/react-compiler) 是 Meta 的 React 团队创建的新实验性编译器。该编译器通过理解纯 JavaScript 语义和 [React 规则](https://react.dev/reference/rules)，深层次地理解你的代码，从而自动优化代码。它减少了开发人员通过 `useMemo` 和 `useCallback` API 进行手动记忆化的工作，使代码更简单、更易维护、错误更少。
+
+在 Next.js 15 中，我们添加了对 [React Compiler](https://react.dev/learn/react-compiler) 的支持。
+
+安装 `babel-plugin-react-compiler`：
+
+```bash
+npm install babel-plugin-react-compiler
+```
+
+然后，在 next.config.js 中添加 `experimental.reactCompiler` 选项：
+
+```typescript
+// next.config.ts
+
+const nextConfig = {
+  experimental: {
+    reactCompiler: true,
+  },
+};
+
+module.exports = nextConfig;
+```
+
+你还可以选择将编译器配置为在 "opt-in"模式下运行，如下所示：
+
+```typescript
+// next.config.ts
+
+const nextConfig = {
+  experimental: {
+    reactCompiler: {
+      compilationMode: 'annotation',
+    },
+  },
+};
+
+module.exports = nextConfig;
+```
+
+> 注意：当前 React Compiler 只能通过 Babel 插件在 Next.js 中使用，这可能会导致构建时间变慢。
+
+了解更多关于 [React Compiler](https://react.dev/learn/react-compiler) 以及 [Next.js 配置选项](https://react.dev/learn/react-compiler#usage-with-nextjs)的信息。
+
+### 水合错误改进
+
+Next.js 14.1 对错误消息和水合错误进行了[改进](https://nextjs.org/blog/next-14-1#improved-error-messages-and-fast-refresh)。Next.js 15 在此基础上，增加了改进的水合错误视图。水合错误现在会显示错误的源代码，并提供如何解决问题的建议。
+
+例如，以下是 Next.js 14.1 中的水合错误消息：
+
+![Next.js 14.1 中的水合错误消息](/assets/053/01.hydration-error-before-light.avif)
+
+Next.js 15 RC 将其改进为：
+
+![Next.js 15 RC 中改进的水合错误消息](/assets/053/02.hydration-error-after-light.avif)
+
+## 缓存更新
+
+Next.js App Router 启动时具有默认缓存策略。这些策略旨在提供最优性能选项，同时允许在需要时选择退出。
+
+根据开发者们的反馈，我们重新评估了[缓存启发式方法](https://x.com/feedthejim/status/1785242054773145636)及其与部分预渲染 (PPR) 和使用 `fetch` 的第三方库的交互。
+
+在 Next.js 15 中，我们将 **`fetch` 请求、GET 路由处理程序和客户端路由器缓存**的默认缓存策略从默认缓存改为默认不缓存。如果你希望保留以前的行为，你可以继续选择缓存。
+
+我们将在接下来的几个月中继续改进 Next.js 的缓存，并将在 Next.js 15 GA 公告中分享更多详细信息。
+
+### fetch 请求默认不再缓存
+
+Next.js 使用 [Web fetch API](https://developer.mozilla.org/zh-CN/docs/Web/API/Fetch_API) 缓存选项来配置服务器端 fetch 请求如何与框架的持久 HTTP 缓存交互：
+
+```javascript
+fetch('https://...', { cache: 'force-cache' | 'no-store' });
+```
+
+- `no-store` - 每次请求从远程服务器获取资源，不更新缓存
+- `force-cache` - 从缓存获取资源（如果存在）或从远程服务器获取资源并更新缓存
+
+在 Next.js 14 中，如果未提供缓存选项，默认使用 `force-cache`，除非使用动态函数或动态配置选项。
+
+在 Next.js 15 中，如果未提供缓存选项，默认使用 `no-store`。这意味着 `fetch` 请求默认不会缓存。
+
+你仍然可以通过以下方式选择缓存 `fetch` 请求：
+
+- 在单个 `fetch` 调用中将缓存选项设置为 `force-cache`
+- 为单个路由设置 dynamic 路由配置选项为 `'force-static'`
+- 将 `fetchCache` 路由配置选项设置为 `'default-cache'`，以覆盖 Layout 或 Page 中的所有 `fetch` 请求，使其使用 `force-cache`，除非明确指定自己的缓存选项
+
+### GET 路由处理程序默认不再缓存
+
+在 Next.js 14 中，使用 GET HTTP 方法的路由处理程序默认缓存，除非使用动态函数或动态配置选项。在 Next.js 15 中，GET 函数默认不缓存。
+
+你仍然可以使用静态路由配置选项（例如 `export dynamic = 'force-static'`）选择缓存。
+
+特殊路由处理程序如 [sitemap.ts](https://rc.nextjs.org/docs/app/api-reference/file-conventions/metadata/sitemap)、[opengraph-image.tsx](https://rc.nextjs.org/docs/app/api-reference/file-conventions/metadata/opengraph-image) 和 [icon.tsx](https://rc.nextjs.org/docs/app/api-reference/file-conventions/metadata/app-icons) 以及其他[元数据文件](https://rc.nextjs.org/docs/app/api-reference/file-conventions/metadata)默认仍为静态，除非使用动态函数或动态配置选项。
+
+### 客户端路由器缓存默认不再缓存页面组件
+
+在 Next.js 14.2.0 中，我们引入了实验性的 [staleTimes](https://rc.nextjs.org/docs/app/api-reference/next-config-js/staleTimes) 标志，以允许自定义配置[路由器缓存](https://rc.nextjs.org/docs/app/building-your-application/caching#router-cache)。
+
+在 Next.js 15 中，此标志仍然可访问，但我们更改了默认行为，使 Page 段的 `staleTime` 为 `0`。这意味着你在应用内导航（navigate）时，客户端将始终反映来自 Page 组件的最新数据。然而，以下重要行为仍保持不变：
+
+- 共享布局的数据不会从服务器重新获取，以继续支持[部分渲染](https://rc.nextjs.org/docs/app/building-your-application/routing/linking-and-navigating#4-partial-rendering)。
+- 后退/前进导航仍将从缓存中恢复，以确保浏览器可以恢复滚动位置。
+- [Loading.js](https://rc.nextjs.org/docs/app/api-reference/file-conventions/loading) 将缓存 5 分钟（或 `staleTimes.static` 配置的值）。
+
+你可以通过以下配置设置以前的客户端路由器缓存行为：
+
+```typescript
+// next.config.ts
+
+const nextConfig = {
+  experimental: {
+    staleTimes: {
+      dynamic: 30,
+    },
+  },
+};
+
+module.exports = nextConfig;
+```
+
+## 部分预渲染的增量采用（实验性）
+
+在 Next.js 14 中，我们引入了[部分预渲染 (PPR)](https://nextjs.org/blog/next-14#partial-prerendering-preview)——一种在同一页面上结合[静态和动态渲染](https://rc.nextjs.org/docs/app/building-your-application/rendering/server-components#server-rendering-strategies)的优化。
+
+Next.js 当前默认使用静态渲染，除非你使用[动态函数](https://rc.nextjs.org/docs/app/building-your-application/routing/route-handlers#dynamic-functions)如 `cookies()`、`headers()` 和未缓存的数据请求。这些 API 将整个路由转换为动态渲染。使用 PPR，你可以将任何动态 UI 包装在 `Suspense` 边界中。当有新请求到来时，Next.js 将立即提供静态 HTML 外壳，然后在同一 HTTP 请求中渲染和流式传输动态部分。
+
+为了允许增量采用，我们添加了 `experimental_ppr` 路由配置选项，用于选择特定布局和页面进入 PPR：
+
+```javascript
+// app/page.jsx
+
+import { Suspense } from "react"
+import { StaticComponent, DynamicComponent } from "@/app/ui"
+ 
+export const experimental_ppr = true
+ 
+export default function Page() {
+  return {
+    <>
+      <StaticComponent />
+      <Suspense fallback={...}>
+        <DynamicComponent />
+      </Suspense>
+    </>
+  };
+}
+```
+
+要使用新选项，你需要在 next.config.js 文件中将 `experimental.ppr` 配置设置为 `'incremental'`：
+
+```typescript
+// next.config.ts
+
+const nextConfig = {
+  experimental: {
+    ppr: 'incremental',
+  },
+};
+
+module.exports = nextConfig;
+```
+
+一旦所有路由段都启用了 PPR，你就可以将 `ppr` 值设置为 `true`，并为整个应用和所有未来路由启用它。
+
+我们将在 Next.js 15 GA 博客文章中分享更多关于 PPR 路线图的信息。
+
+了解更多关于[部分预渲染](https://rc.nextjs.org/docs/app/api-reference/next-config-js/ppr)的信息。
+
+## 使用 `next/after` 在响应后执行代码（实验性）
+
+在处理用户请求时，服务器通常执行直接与计算响应相关的任务。然而，你可能需要执行诸如日志记录、分析和其他外部系统同步的任务。
+
+这些任务与响应无直接关系，用户不应等待它们完成。然而，由于无服务器功能会在响应关闭后立即停止计算，因此在响应用户后执行后续任务会带来挑战。
+
+`after()` 是一个新的实验性 API，允许你在响应完成流式传输后安排任务处理，使辅助任务在不阻塞主要响应的情况下运行。
+
+要使用它，请在 next.config.js 中添加 `experimental.after`：
+
+```typescript
+// next.config.ts
+
+const nextConfig = {
+  experimental: {
+    after: true,
+  },
+};
+
+module.exports = nextConfig;
+```
+
+然后，在服务器组件(Server Components)、服务器操作(Server Actions)、路由处理程序(Route Handlers)或中间件(Middleware)中导入该函数：
+
+```javascript
+import { unstable_after as after } from 'next/server';
+import { log } from '@/app/utils';
+ 
+export default function Layout({ children }) {
+  // 辅助任务
+  after(() => {
+    log();
+  });
+ 
+  // 主要任务
+  return <>{children}</>;
+}
+```
+
+了解更多关于 [next/after](https://rc.nextjs.org/docs/app/api-reference/functions/unstable_after) 的信息。
+
+## `create-next-app` 更新
+
+对于 Next.js 15，我们更新了 `create-next-app` 的新设计。
+
+![Next.js 15 RC 中 create-next-app 的新设计](/assets/053/03.create-next-app-light.avif)
+
+运行 `create-next-app` 时，有一个新提示询问是否要为本地开发启用 `Turbopack`（默认选择为否）。
+
+```bash
+Terminal
+
+✔ Would you like to use Turbopack for next dev? … No / Yes
+```
+
+可以使用 `--turbo` 标志启用 Turbopack。
+
+```bash
+npx create-next-app@rc --turbo
+```
+
+为了更轻松地开始新项目，CLI 添加了一个新的 `--empty` 标志。这将移除所有多余的文件和样式，生成一个最小的“Hello World”页面。
+
+```bash
+npx create-next-app@rc --empty
+```
+
+## 优化外部包打包（稳定）
+
+打包外部包可以提高应用的冷启动性能。在 App Router 中，外部包默认打包，你可以使用新的 [serverExternalPackages](https://rc.nextjs.org/docs/app/api-reference/next-config-js/serverExternalPackages) 配置选项选择退出特定包。
+
+在 Page Router 中，外部包默认不打包，但你可以使用现有的 [transpilePackages](https://rc.nextjs.org/docs/pages/api-reference/next-config-js/transpilePackages) 选项提供要打包的包列表。使用此配置选项，你需要指定每个包。
+
+为了统一 App Router 和 Page Router 之间的配置，我们引入了新的选项 [bundlePagesRouterDependencies](https://rc.nextjs.org/docs/pages/api-reference/next-config-js/bundlePagesRouterDependencies)，以匹配 App Router 的默认自动打包。你可以根据需要使用 [serverExternalPackages](https://rc.nextjs.org/docs/app/api-reference/next-config-js/serverExternalPackages) 选择退出特定包。
+
+```typescript
+// next.config.ts
+
+const nextConfig = {
+  // 自动打包 Page Router 中的外部包：
+  bundlePagesRouterDependencies: true,
+  // 为应用和 Page Router 选择退出特定包的打包：
+  serverExternalPackages: ['package-name'],
+};
+
+module.exports = nextConfig;
+```
+
+了解更多关于[优化外部包的信息](https://rc.nextjs.org/docs/app/building-your-application/optimizing/package-bundling)。
+
+## 其他更新
+
+- **[重大变更]** 最低 React 版本现在为 19 RC
+- **[重大变更]** next/image：移除 `squoosh`，改用 `sharp` 作为可选依赖项（[PR](https://github.com/vercel/next.js/pull/63321)）
+- **[重大变更]** next/image：将默认 `Content-Disposition` 更改为 `attachment`（[PR](https://github.com/vercel/next.js/pull/65631)）
+- **[重大变更]** next/image：当 `src` 具有前导或尾随空格时出错（[PR](https://github.com/vercel/next.js/pull/65637)）
+- **[重大变更]** 中间件：应用 `react-server` 条件以限制不推荐的 React API 导入（[PR](https://github.com/vercel/next.js/pull/65424)）
+- **[重大变更]** next/font：移除对外部 `@next/font` 包的支持（[PR](https://github.com/vercel/next.js/pull/65601)）
+- **[重大变更]** next/font：移除 `font-family` 哈希（[PR](https://github.com/vercel/next.js/pull/53608)）
+- **[重大变更]** 缓存：`force-dynamic` 现在将 fetch 缓存默认设置为 `no-store`（[PR](https://github.com/vercel/next.js/pull/64145)）
+- **[重大变更]** 配置：默认启用 `swcMinify`（[PR](https://github.com/vercel/next.js/pull/65579)）、`missingSuspenseWithCSRBailout`（[PR](https://github.com/vercel/next.js/pull/65688)）和 `outputFileTracing`（[PR](https://github.com/vercel/next.js/pull/65579)）行为，并移除弃用选项
+- **[重大变更]** 移除 Speed Insights 的自动仪表化（现在必须使用专用的 [@vercel/speed-insights](https://www.npmjs.com/package/@vercel/speed-insights) 包）（[PR](https://github.com/vercel/next.js/pull/64199)）
+
+- **[改进]** 对齐开发和生产环境中的 sitemap URLs（[PR](https://github.com/vercel/next.js/pull/65507)）
+- **[改进]** 元数据：在 Vercel 上托管时，更新 `metadataBase` 的环境变量回退（[PR](https://github.com/vercel/next.js/pull/65089)）
+- **[改进]** 修复 `optimizePackageImports` 中混合命名空间和命名导入的 tree-shaking（[PR](https://github.com/vercel/next.js/pull/64894)）
+- **[改进]** 并行路由：为未匹配的 catch-all 路由提供所有已知参数（[PR](https://github.com/vercel/next.js/pull/65063)）
+- **[改进]** 配置 `bundlePagesExternals` 现在稳定并重命名为 `bundlePagesRouterDependencies`
+- **[改进]** 配置 `serverComponentsExternalPackages` 现在稳定并重命名为 `serverExternalPackages`
+- **[改进]** create-next-app：新项目默认忽略所有 `.env` 文件（[PR](https://github.com/vercel/next.js/pull/61920)）
+
+- **[文档]** 改进身份验证文档（[PR](https://github.com/vercel/next.js/pull/63140)）
+- **[文档]** `@next/env` 包（[PR](https://github.com/vercel/next.js/pull/64908)）
+
+要了解更多信息，请查看[升级指南](https://nextjs.org/docs).
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

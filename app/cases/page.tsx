@@ -38,9 +38,9 @@ export default async function Page() {
 
 const content = `
 
-- 推特账号：@weijunext（https://x.com/weijunext）
-- 即刻账号：@BigYe程普（https://okjk.co/dY4Qlq）
-- 微博账号：@BigYe程普（https://weibo.com/u/5890176177）
+- 推特账号：@weijunext（https://x.com/weijunext/ ）
+- 即刻账号：@BigYe程普（https://okjk.co/dY4Qlq/ ）
+- 微博账号：@BigYe程普（https://weibo.com/u/5890176177/ ）
 - 微信朋友圈：bigye_chengpu
 
 ## 案例展示

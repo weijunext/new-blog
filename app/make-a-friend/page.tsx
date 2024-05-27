@@ -43,7 +43,7 @@ const content = `
 
 **海阔凭鱼跃，天高任鸟飞**，欢迎每一位不设限的开发者加入👇
 
-<img src="/wechat.jpeg" width="30%" />
+<img src="/wechat.webp" width="30%" />
 
 ## 🚀 关于我
 

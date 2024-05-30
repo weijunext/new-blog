@@ -1,0 +1,192 @@
+---
+title: Next.js动态路由、动态渲染傻傻分不清
+description: 最近，在交流群里有位群友说「动态路由就是动态渲染」。这是很符合直觉的判断，但真理往往是反直觉的，动态路由不一定是动态渲染的。
+slug: dynamic-router-and-dynamic-rendering
+tags: NextJS
+date: 2024-05-30
+---
+
+## 前言
+
+最近，在交流群里有位群友说「动态路由就是动态渲染」。
+
+这是很符合直觉的判断，但真理往往是反直觉的，动态路由不一定是动态渲染的。本文就来把这两个概念解释清楚，说说它们分别是什么，有什么关联，又有什么区别。
+
+## 动态路由详解
+
+动态路由是 Next.js 的开箱即用一种路由模式。它的 URL 通常是 `/posts/1`、`/posts/2` 这样的形式，其中数字部分就是动态参数，代表文章ID。
+
+动态路由的应用场景非常广泛，几乎涵盖了所有需要根据动态数据生成页面的情况。一些典型的例子包括:
+
+- 博客文章页面，如 `/posts/:id`
+- 电商商品详情页，如 `/products/:id`
+- 用户个人主页，如 `/users/:username`
+
+### 在Next.js中实现动态路由
+
+之所以说动态路由是开箱即用的，是因为 Next.js 提供了一套非常简洁的创建动态路由的机制——通过文件名即可创建动态路由。
+
+它的命名约定是这样：在 app 目录下，我们可以通过在文件夹和文件名中使用方括号来创建动态路由。例如：`app/posts/[id]/page.tsx` 表示一个使用 `id` 作为动态参数的路由。
+
+而在 `page.tsx` 页面组件中，我们可以通过 `params` 属性直接获取路由参数。例如:
+
+```tsx
+function Post({ params }) {
+  const { id } = params
+
+  return <div>Post: {id}</div>
+}
+
+export default Post
+```
+
+### 动态路由嵌套
+
+更进一步地，我们还能利用动态路由可嵌套的特性，去实现相对复杂的需求。
+
+例如，我们创造一个夸张的需求，博客文章的访问路径要根据年、月、日划分文件夹，那么我们先创建出这样多层嵌套的文件夹结构：
+
+```tsx
+app/
+  posts/
+    [year]/
+      [month]/
+        [day]/
+          [slug]/
+            page.tsx
+```
+
+`page.tsx` 页面组件可以这样写:
+
+```tsx
+function Post({ params }) {
+  const { year, month, day, slug } = params
+
+  return (
+    <div>
+      <h1>{slug}</h1>
+      <p>Published on {year}-{month}-{day}</p>
+    </div>
+  )
+}
+
+export default Post
+```
+
+多层嵌套的动态路由会捕获所有动态参数，均可在 `params` 读取。
+
+### 单文件匹配多层动态路由
+
+仍旧使用上面的例子，你可能觉得创建多层级的动态路由不够优雅。如果能在一个文件里匹配多层动态路由，那就很方便了，Next.js 也想到了这一点。只需要在动态路由文件夹的方括号上添加省略号（`...`）来定义，例如 `[...slug]`，页面组件就能捕获 URL 上的所有动态参数了。
+
+```tsx
+app/
+  posts/
+    [...slug]/
+        page.tsx
+```
+
+页面组件里仍旧通过 `params` 捕获参数，但不同的是，此时多层动态参数会被放在一个数组里，例如：URL 是 `/posts/2024/04/25/dynamic-route` 这样的动态路由，`params` 会得到这样的数据：`{ slug: [’2024’, ‘04’, ‘25’, ‘dynamic-route’] }`
+
+```tsx
+function Post({ params }) {
+  const { slug } = params
+
+  return (
+    <div>
+      <h1>{slug[3]}</h1>
+      <p>Published on {slug[0]}-{slug[1]}-{slug[2]}</p>
+    </div>
+  )
+}
+
+export default Post
+```
+
+我们还可以把这个例子复杂度再升级一下，现在我们希望页面组件既能支持有动态参数的情况，也能支持没有动态参数的情况，也就是我们想要访问 `/posts` 时候也可以渲染我们上面创建的页面组件。这个需求只要给动态路由文件夹再加一层中括号就能实现，即改成 `[[…slug]]` 就可以，而 params 参数是空对象。
+
+现在访问的 URL 和对应获取到的参数可以从这个表格看出来：
+
+| 路由 | URL | params 参数 |
+| --- | --- | --- |
+| app/posts/[[…slug]]/page.tsx | /posts/2024/04/25/dynamic-route | `{ slug: [’2024’, ‘04’, ‘25’, ‘dynamic-route’] }` |
+| app/posts/[[…slug]]/page.tsx | /posts | `{}` |
+
+匹配多层动态路由的方法，好处是无论 URL 携带里多少个动态参数，页面组件都能捕获到，但缺点是我们需要在页面组件里处理复杂的逻辑，以防止代码出现bug。
+
+### 动态路由的静态生成
+
+如果动态路由的参数取值范围是有限的，我们可以使用 `generateStaticParams` 函数在构建时生成所有可能的静态 HTML，提升页面加载性能。用法很简单，在页面组件添加 `generateStaticParams` 即可：
+
+```tsx
+export async function generateStaticParams() {
+  const posts = await getPosts()
+
+  return posts.map((post) => ({
+    id: post.id,
+  }))
+}
+```
+
+添加这样的函数后，在构建阶段，Next.js 会自动将 `posts` 里包含的 `id` 所对应的页面都生成静态 HTML，访问这些 HTML 也就变成静态渲染了，而不是动态渲染。这就是文章开头「动态路由不一定是动态渲染的」这句话的答案。
+
+这个函数仅在构建阶段有效，所以你只能执行 `npm run build` 后到 `.next/server/app/posts` 文件夹下验证，如果确实生成了 HTML，那就说明函数生效了。
+
+当我们使用 `generateStaticParams` 实现动态路由静态生成后，那些没有在打包阶段生成页面的 `id`，仍然会走动态渲染的方式来展现。
+
+## 动态渲染介绍
+
+从 Next.js 在 13.x 版本引入 App Router 开始，组件被划分成服务端组件和客户端组件，渲染方式也和曾经的 Pages Router 的渲染方式有所不同。
+
+在 App Router 里面，服务端组件主要有三种渲染方式：静态渲染、动态渲染、流式渲染。我们在这一节介绍的就是服务端组件的动态渲染。
+
+### 什么是动态渲染
+
+如文章开头所说，直觉上我们第一反应就是动态路由就是动态渲染。这句话换一种表述就是正确的了：动态渲染来自动态路由。
+
+动态路由如果用静态生成方法，那么一部分路由就会变成静态渲染，只有那些每次请求都根据请求上下文最新数据生成相应内容的动态请求才是动态渲染。
+
+### 动态渲染的高级方法
+
+如果每次动态渲染都因为动态参数而重复请求，那么服务器的负载压力就会变大，对应用的优化有可能变成负优化。为此，Next.js 为动态渲染提供了3中缓解服务器负载的方法。
+
+第一种方法是在动态路由段引入的 `revalidate` 方法就是用来配置组件重新验证时间的，在服务端组件里，可以理解为重新请求时间。
+
+```tsx
+export const revalidate = false // false | 0 | number
+```
+
+我们可以通过给布局文件、页面文件添加这样的一行代码，设置重新验证时间，在重新验证时间内的请求不再重复请求，而是取服务端缓存的结果进行渲染。
+
+第二种方法是混合渲染。将页面拆分成静态和动态的部分，对于静态的部分使用静态渲染，动态的部分则使用动态渲染，实现更细粒度的性能优化。
+
+第三种方法是增量静态再生（Incremental Static Regeneration，ISR），将动态渲染与 ISR 结合，在初次请求时动态渲染页面，后续的请求则返回缓存的静态 HTML，定期重新验证和更新。启用 ISR 的步骤有两个：
+
+1. 定义 `generateStaticParams` 方法，返回一个包含静态路径参数的对象数组，用于生成静态页面；
+2. 设置 `revalidate` 参数，指定页面的重新验证时间间隔；如果没有设置`revalidate`参数，或者将其设置为 `false`，则表示页面不会被重新验证，只会在构建时生成一次，这种情况和静态渲染等价；
+
+启用 ISR 后，该动态渲染的页面会在构建时生成静态页面，而在运行时还能根据 `revalidate` 的设置按需更新页面，可以很好地平衡页面的静态性和动态性。ISR 适用于没有实时更新需求的页面，例如：博客、文档网站、知识库等。
+
+## 总结
+
+以上就是动态路由和动态渲染需要掌握的知识了，实际开发应该灵活运用它们的特性，不要因为是动态路由就只用到动态渲染。
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

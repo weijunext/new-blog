@@ -1,0 +1,409 @@
+---
+title: 如何给静态网站做客户端搜索
+description: 用地表最强搜索库FlexSearch，给静态网站做了个搜索功能。本文介绍内容适用于博客、文档类网站。
+slug: adding-client-side-search-to-static-site
+tags: NextJS,NextJS实战
+date: 2024-06-12
+visible: invisible
+---
+
+> 实测文章比较多的情况下，客户端搜索对首屏渲染影响比较大，所以本文的方案不建议使用。
+
+上个月做了一个[博客/周刊网站的开源模板](https://github.com/weijunext/weekly-boilerplate)，也写了拆解文章：[Next.js+MDX手撸一个开源周刊模板](/article/ship-weekly-newsletter-fast)。
+
+做完只感叹 MDX+SSG 真的太香了！有了这个模板，我以后做文档类网站如虎添翼啊。
+
+<Aside>
+SSG(Static Site Generation)是一种预渲染网站页面的方法,通过将内容提前生成为静态 HTML 文件，提供了更快的加载速度和更好的性能。
+
+</Aside>
+
+不过，很快我发现了另一个问题，如果这个网站内容越来越多，用户要怎么检索信息？
+
+搜索功能说起来容易，可我这是 SSG 网站，没有数据库，Next.js 虽然有服务端组件，但也不能每次用户搜索都用服务端组件读一遍所有文件吧！且不说读取文件耗时造成用户体验的问题，一大堆文件读取操作也够服务器喝一壶了。
+
+一开始，我以为会有很成熟的方案，npm 安装个依赖就完事，但去了解了才发现并非如此。SSG 网站集成搜索的方案有很多种，但都是底层库，开发者需要自己编写很多逻辑。我在实现搜索功能的过程中也吃了一点苦头，本文就是记录这个过程中的思考与实践。
+
+读完本文你将学到：
+
+- 搜索功能实现方案的思考
+- FLexSearch 实现SSG网站搜索功能的分析与实践
+- 了解常见搜索库的底层设计原理
+
+## 搜索功能实现方案的思考
+
+### 方案一：服务端全文检索
+
+在开始研究搜索方案前，我能想到的方法就是让服务端全文检索。我要做的是博客类网站，如果文本内容放在数据库，可以通过数据库检索。然而，我的网站是用 MDX 实现的静态网站，肯定没有数据库了，如果还想做实时搜索，可以考虑用 node fs 模块读取文件内容进行匹配。这种方案倒是不难，因为我在用 Next.js 静态生成的时候，就已经写好了读取 mdx 文件内容的方法了：
+
+```jsx
+// 读取指定文件夹下的 mdx 文件内容
+const posts = await Promise.all(
+  filenames.map(async (filename) => {
+    const fullPath = path.join(postsDirectory, filename)
+    const fileContents = await fs.promises.readFile(fullPath, 'utf8')
+
+    const { data, content } = matter(fileContents)
+    const month = dayjs(data.date).format('YYYY-MM-DD').slice(0, 7);
+
+    return {
+      id: month,
+      metadata: data, // slug/url title date
+      title: data.title,
+      slug: data.slug,
+      content,
+    }
+  })
+)
+```
+
+频繁读文件会导致大量IO操作，会给服务端带来很大压力；而且随着文件数量增多，这种方案的搜索效率可能大幅下降。
+
+这个方案是应用价值最低的，必须抛弃！
+
+### 方案二：使用第三方服务
+
+使用第三方服务是一种比较靠谱的方法，比如 Algolia 和 Elastic 这样的平台都已经比较成熟，服务也稳定。
+
+以 Elastic 为例介绍，你只需要注册账号，然后创建索引，让网络爬虫把网站内容爬取出来，
+
+![add-search-web-crawler-search-index.png](/assets/052/add-search-web-crawler-search-index.png)
+
+然后把爬取和创建的索引数据关联到数据库，然后就可以通过接口开发实现搜索功能。
+
+![add-search-search-elastic-mongo-db.png](/assets/052/add-search-search-elastic-mongo-db.png)
+
+用第三方服务实现搜索功能，优点是可以快速拥有成熟且功能丰富的搜索功能，但缺点也很明显，学习成本可能会拖累开发进度，而且要付费。所以使用第三方服务只能是备选方案。
+
+### 方案三：使用开源的搜索库
+
+既然有成熟的第三方搜索服务，那么肯定也会有开源的手搓方案，于是我搜了一下，那是相当的多啊，比如 Fuse、Lunr.js、FlexSearch 等等。
+
+而这些库的使用方式都遵循两个步骤：
+
+- 创建网站内容索引的方法
+- 查询该索引以返回相关结果的方法
+
+和第三方服务的使用原理相同。
+
+对比了几个开源搜索库之后，我选择了 [FlexSearch](https://www.npmjs.com/package/flexsearch)，选择这个库的主要原因有两个：
+
+1. 在 FlexSearch 文档里有个测评效果对比，结论是 FlexSearch 是地表最强搜索库
+    
+    ![flexsearch.png](/assets/052/flexsearch.png)
+    
+2. FlexSearch 提供的 API 很多，配置灵活，所以文档非常长，学习起来心智负担不小。我想挑战一下，所以就决定用它了。
+
+## FLexSearch的用法与客户端搜索实践
+
+如上一节所说，FlexSearch API 很多，文档很长，所以本文没办法把所有 API 用法都介绍清楚，这里只介绍本次实践会用到的几个核心 API。
+
+### 创建和配置索引
+
+使用 FlexSearch 的第一步就是先创建索引。
+
+```jsx
+const pageIndex = new FlexSearch.Document({
+  tokenize: "full",
+  cache: 100,
+  document: {
+    id: "id",
+    index: "content",
+    store: ["title", "content"],
+  }
+});
+```
+
+这个索引定义中，使用 `FlexSearch.Document` 创建了一个用于全文搜索的文档级索引，可以用来给整篇文档创建索引。
+
+配置介绍：
+
+- `tokenize`：用于指定索引的分词策略，这决定了如何将文本拆分成可索引的单元。有以下几种可选项：
+    - `strict`：对文本进行严格的分词，只考虑完整的单词；
+    - `forward`：将文本向前分词，它会从文本的开始到结束进行分词，例如：“quick brown fox”会被分词为“quick”, “quick brown”, “quick brown fox”；
+    - `reverse`：与 `forward` 相反，此选项从文本的末尾向开始分词，例如：“quick brown fox”会被分词为“fox”, “brown fox”, “quick brown fox”；
+    - `full`：对文本进行完整的分词，即产生所有可能的子字符串；
+    - 自定义方法：FlexSearch 支持自定义分词方法。例如：`(str) ⇒ str.split(/\s+/)`，可以把任何添加到索引的文本都将按空格被拆分成单词。通过这个自定义方法，在中文场景下，我们可以引入 `nodejieba` 或者 `segment` 进行分词处理。
+- `cache`: 设置缓存的大小，这里的 100 表示缓存最近 100 个搜索结果。缓存可以提高频繁查询的响应时间。
+- `document`：用来定义文档索引的主要结构
+    - id：指定用作文档唯一标识符的字段名称；
+    - index：定需要被索引的字段，这里是 `content` 字段，`content` 在我的代码里是用来存 mdx 文件的内容。
+    - store：指定除了建立索引外，还需要存储的字段列表。
+
+### 添加数据
+
+创建完索引后，就可以往索引里添加数据，例如根据上面定义的索引，就可以用 `add` 方式这样添加数据：
+
+```jsx
+  pageIndex.add({
+    id: id, // 唯一id
+    title: title, // mdx 文章标题
+    content: content, // mdx 文章内容
+  });
+```
+
+### 搜索内容
+
+添加数据后，就可以调用 `search` 方法进行搜索：
+
+```jsx
+pageIndex.search(text, limit, options);
+```
+
+search 方法有三个参数：
+
+- `text`：这是你搜索的文本字符串。
+- `limit`：这是一个可选参数，用于控制搜索结果的最大条目数，如果不设置此参数，搜索结果将返回所有匹配的项。
+- `options`：这是也是个可选参数，用于配置搜索的行为：
+    - `suggest`: 一个布尔值，如果设置为 `true`，在没有找到完全匹配的情况下，FlexSearch 会尝试返回接近的匹配项。
+    - `enrich`: 设置为 `true` 时，会返回更多的结果信息，而不仅仅是文档的 id。
+    - `bool`: 定义逻辑操作的类型（如 "or"、"and"），影响多个关键字的搜索逻辑。
+
+### 完整逻辑
+
+上面三个 API 是做一个搜索功能必备的，但实际开发中，为了效果更好，会需要处理得更细致。下面是我的搜索功能使用的代码，我会通过注释解释代码思路：
+
+```tsx
+// 创建索引和添加数据
+
+// stripMarkdown 是一个 Markdown 格式的方法，
+import { stripMarkdown } from "@/lib/search";
+// 
+import { WeeklyPost } from "@/types/weekly";
+import FlexSearch from 'flexsearch';
+
+// 创建一个 FlexSearch 文档索引
+export const pageIndex = new FlexSearch.Document({
+  tokenize: "full",  // 使用 "full" 分词，为每种可能的词组创建索引，适合详细搜索
+  cache: 100,        // 缓存 100 个最近的搜索结果
+  document: {
+    id: "id",        // 指定文档的唯一标识符字段
+    index: "content",// 指定要索引的主要内容字段
+    store: ["title", "content"],  // 指定存储在索引中以便直接访问的字段
+  },
+  context: {
+    resolution: 9,   // 设置上下文分辨率为 9
+    depth: 2,        // 设置上下文深度为 2
+    bidirectional: true, // 启用双向上下文分析
+  },
+});
+// 创建一个用于段落的 FlexSearch 文档级索引
+export const sectionIndex = new FlexSearch.Document({
+  cache: 100,        // 缓存 100 个最近的搜索结果
+  tokenize: "full",  // 使用 "full" 分词
+  document: {
+    id: "id",        // 指定文档的唯一标识符字段
+    index: "content",// 指定要索引的主要内容字段
+    pageId: "pageId",// 附加字段，用于关联页面ID
+    store: ["title", "content", "display"],  // 存储在索引中的额外字段
+  },
+  context: {
+    resolution: 9,   // 设置上下文分辨率为 9
+    depth: 2,        // 设置上下文深度为 2
+    bidirectional: true, // 启用双向上下文分析
+  },
+});
+
+let pageId = 0; // 页面ID初始化
+/**
+ * 创建索引并将其导出为 JSON 文件
+ */
+export const createIndex = async ({ documents }: { documents: WeeklyPost[] }) => {
+  let pageContent = "";  // 用于累积整个页面的内容
+  ++pageId;  // 为新一批文档递增页面ID
+
+  for (let i = 0; i < documents.length; i++) {
+    const doc = documents[i];
+
+    const slug = doc.slug;  // 文档的slug，在我的代码里属于唯一标识
+    const title = doc.title;  // 文档标题
+    const content = doc.content;  // 文档内容
+    const paragraphs = doc.content.split("\n");  // 将内容按段落分割
+
+    // 将标题添加为一个单独的节
+    sectionIndex.add({
+      id: slug, // id 必须是唯一标识
+      title,
+      pageId: `page_${pageId}`,
+      content: title,
+      ...(paragraphs[0] && { display: paragraphs[0] }), // 如果存在，将第一段作为显示内容
+    });
+
+		// 为每个段落创建一个独立的索引项
+    for (let j = 0; j < paragraphs.length; j++) {
+      if (paragraphs[j]) {
+        sectionIndex.add({
+          id: `${slug}_${j}`,
+          title,
+          pageId: `page_${pageId}`,
+          // 调用 stripMarkdown 去掉 Markdown 格式的字符，这样搜索结果可以更干净
+          content: stripMarkdown(paragraphs[j]), 
+        });
+      }
+    }
+
+    // 将整个页面的内容（标题和文本）添加到页面索引
+    pageContent += `${title} ${content}`;
+
+    pageIndex.add({
+      id: pageId,
+      title: doc.title,
+      content: stripMarkdown(pageContent), // 清理整页内容的Markdown格式
+    });
+  }
+
+	// 如果你想把索引数据添加到缓存，可以使用下面这段代码
+  // await new Promise((resolve, reject) => {
+  //   sectionIndex.export((key, data) => {
+  //     localStorage.setItem(key, data)
+  //   });
+  // });
+};
+
+```
+
+这里有了 `pageIndex`，为什么还要创建 `sectionIndex` 呢？因为最开始我只为文章创建了索引，然后发现搜索结果会显示整个文章，长度太长体验不好，但是按段落建立索引后，搜索的时候用 `sectionIndex` 进行搜索，搜索结果只会按段落排序，体验比较好。
+
+搜索的代码就比较简单了，只需要根据 FlexSearch 搜索出来的结构进行转换格式和提取数据就可以：
+
+```tsx
+// 搜索
+
+import { sectionIndex } from "@/lib/loadIndex";
+import { SearchResult } from "@/types/search";
+import { SimpleDocumentSearchResultSetUnit } from "flexsearch";
+
+/**
+ * 执行搜索
+ * @param {string} value - 搜索关键词
+ * @returns {Promise<Array>} 搜索结果的 Promise 对象
+ */
+export const doSearch = async (value: string): Promise<SearchResult[]> => {
+  if (!value) {
+    return [];
+  }
+
+  // 使用 sectionIndex 执行搜索,并返回结果
+  const results: SimpleDocumentSearchResultSetUnit[] = await sectionIndex.search(value, { enrich: true, suggest: true });
+
+  // 转换搜索结果
+  const transformedResults: SearchResult[] = transformResults(results);
+  return transformedResults;
+}
+
+/**
+ * 转换搜索结果
+ * @param data 搜索结果数据
+ * @returns 转换后的搜索结果
+ */
+export const transformResults = (data: SimpleDocumentSearchResultSetUnit[]) => {
+  if (!data) {
+    return [];
+  }
+  // 将所有 result 数组合并成一个数组
+  const mergedResults: any = data.flatMap((item) => item.result);
+  const sortedResults = mergedResults.sort((a: SearchResult, b: SearchResult) => a.id.localeCompare(b.id));
+  return sortedResults;
+};
+
+/**
+ * 移除 Markdown 格式
+ * @param {string} text - 要处理的文本内容
+ * @returns {string} 移除 Markdown 格式后的文本
+ */
+export const stripMarkdown = (text: string) => {
+  return text
+    .replace(/!\[.*?\]\(.*?\)/g, "") // 移除图片 Remove images
+    .replace(/\[.*?\]\(.*?\)/g, "") // 移除链接 Remove links
+    .replace(/`{1,3}.*?`{1,3}/g, "") // 移除代码 Remove code blocks
+    .replace(/#{1,6} /g, "") // 移除标题标记 Remove heading markers
+    .replace(/[*_~]+.*?[*_~]+/g, "") // 移除强调标记 Remove emphasis markers
+    .replace(/>\s.*/g, "") // 移除引用 Remove blockquotes
+    .replace(/-{3,}/g, "") // 移除分隔线 Remove horizontal rules
+    .replace(/\n+/g, " "); // 替换换行符为空格 Replace newline characters with spaces
+}
+```
+
+有了这些方法，只需要在调用 `createIndex` 方法创建索引时传入文档内容就可以。我选择把搜索逻辑放在客户端执行，所以只需要在服务端组件获取所有 mdx 文件的内容，然后传到客户端组件内，再调用 `createIndex` 方法就可以。
+
+这样实现出来的搜索效果几乎是0延迟的。你可以到我的模板站试用：https://weekly.weijunext.com
+
+## 背后的原理
+
+使用类似 FlexSearch 这样的搜索库的时候，无论代码层面是在服务端搜索还是客户端搜素，你都会发现搜索速度都非常的快。
+
+现在我们来分析一下这类搜索库背后的基本原则和方法：
+
+首先是**索引的构建**：
+
+1. **文本分词（Tokenization）**：这是搜索引擎的第一步，它涉及将文本字符串分解成更小的单元或“词条”（tokens）。这些词条是建立索引的基础。
+2. **词条标准化（Normalization）**：标准化过程确保索引的一致性，常见的操作包括转换为小写、移除标点符号、以及应用词干提取（stemming）和停用词过滤。
+3. **倒排索引（Inverted Index）**：在建立了词条之后，搜索引擎通常会创建一个倒排索引。这是一个从词条到包含该词条的文档列表的映射。这种数据结构使得搜索引擎能够快速定位包含特定词条的所有文档。在代码实现层面，会涉及到 JavaScript 对象或者 ES6 Map 对象来存储这种映射关系。
+
+其次是**搜索查询处理**：
+
+1. **查询分析**：当用户提交搜索请求时，输入的文本也会经过类似于索引时的分词和标准化处理。
+2. **查询执行**：使用处理过的查询词条，搜索引擎会查找倒排索引，获取包含所有或部分查询词条的文档列表。
+3. **相关性评分和排序**：为了提高搜索结果的相关性，搜索引擎会实现一种评分机制来确定每个文档与搜索查询的匹配程度。档根据它们的得分进行排序，以便最相关的结果排在最前面。
+
+为了做到极致效率，每个库都会进行**性能优化**，例如：
+
+1. **缓存机制**：实现缓存策略，缓存常见的查询和结果，以提高响应速度。
+2. **异步和并行处理**：在 JavaScript 环境中，利用异步操作和在可能的情况下并行处理数据，可以有效地利用资源并减少阻塞。
+
+下面是一个丐版的搜索库 demo，如果你想自己做一个搜索库，可以从这个 demo 入手：
+
+```jsx
+const fs = require('fs');
+const path = require('path');
+const searchIndex = new Map();
+
+function createIndex() {
+  const directoryPath = path.join(__dirname, 'path_to_mdx_files');
+  fs.readdir(directoryPath, (err, files) => {
+    if (err) {
+      return console.log('Unable to scan directory: ' + err);
+    }
+    files.forEach(function (file) {
+      let content = fs.readFileSync(path.join(directoryPath, file), 'utf8');
+      // 简单的索引，可以根据需要增加复杂性
+      searchIndex.set(file, content);
+    });
+  });
+}
+
+function search(query) {
+  let results = [];
+  searchIndex.forEach((value, key) => {
+    if (value.includes(query)) {
+      results.push(key);
+    }
+  });
+  return results;
+}
+
+createIndex();
+
+// 搜索示例
+console.log(search('your_search_keyword'));
+```
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

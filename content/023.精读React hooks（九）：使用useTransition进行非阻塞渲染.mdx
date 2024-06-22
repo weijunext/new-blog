@@ -172,6 +172,20 @@ function handleNavigation(newLocation) {
   });
 }
 
+function CustomLink({ to, children }) {
+  return (
+    <a
+      href={to}
+      onClick={(event) => {
+        event.preventDefault();
+        handleNavigation(to);
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 // 主应用组件
 function App() {
   return (

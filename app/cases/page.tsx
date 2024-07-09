@@ -66,6 +66,13 @@ const content = `
   数据截图📊：  
   <img src="/assets/cases/3.metatrend.webp" alt="Edrawmax" width="50%" />
 
+- 302.AI
+
+  推特链接🔗：https://x.com/weijunext/status/1805785895368638716
+  
+  数据截图📊：  
+  <img src="/assets/cases/4.302ai.webp" alt="302ai" width="50%" />
+
 
 ## 合作咨询
 <img src="/wechat.webp" alt="程普微信" width="50%" />

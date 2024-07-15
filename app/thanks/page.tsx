@@ -57,11 +57,13 @@ const content = `
 
 ---
 
-首先感谢两位帮助我扩大个人影响力的贵人
+首先感谢三位帮助我扩大个人影响力的贵人
 
 - [@哥飞](https://twitter.com/gefei55)：**SEO专家、Adsense专家**。在我玩即刻和推特的过程中，哥飞多次转发我的内容，在我冷启动和后来的运营里都帮助我少走了很多弯路；我的开源项目[SmartExcel](https://github.com/weijunext/smart-excel-ai)和[Next.js实战教程](https://github.com/weijunext/nextjs-learn-demos)也都因为哥飞推荐而获得泼天的流量。
 
 - [@铁锤人](https://twitter.com/lxfater)：**全职独立开发者，Github高🌟开发者**。铁锤也是在我推特冷启动的时候，帮我宣传[SmartExcel](https://github.com/weijunext/smart-excel-ai)，给我引流了不少粉丝。
+
+- [@蚁工厂](https://weibo.com/n/%E8%9A%81%E5%B7%A5%E5%8E%82)：**微博最强工具推荐大V**。经常被蚁哥转发，我的微博泼天的富贵全靠蚁哥给的！
 
 ---
 

@@ -66,7 +66,7 @@ const content = `
 - [**Weekly Boilerplate**](https://weekly.weijunext.com)
 - [**Landing Page Boilerplate**](https://landingpage.weijunext.com)
 - [**Next.js Starter**](https://starter.weijunext.com/)
-- [**HelloAI**](https://helloai.wiki/)
+- **HelloAI**（已关闭）
 
 ## 📫 联系我
 

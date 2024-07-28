@@ -26,12 +26,19 @@ const footerNavigation = {
     { name: "Next.js Clean Starter", href: "https://starter.weijunext.com/" },
     {
       name: "Landing Page Boilerplate",
-      href: "https://landingpage.weijunext.com/",
+      href: "https://landingpage.weijunext.com/?utm_source=weijunext",
     },
     { name: "Weekly Boilerplate", href: "https://weekly.weijunext.com/" },
   ],
   indieHacker: [
-    { name: "独立开发者出海周刊", href: "https://gapis.money/" },
+    {
+      name: "PH Copilot",
+      href: "https://PHCopilot.AI/?utm_source=weijunext",
+    },
+    {
+      name: "独立开发者出海周刊",
+      href: "https://gapis.money/?utm_source=weijunext",
+    },
     {
       name: "Indie Hacker Tools",
       href: "https://github.com/weijunext/indie-hacker-tools",
@@ -80,7 +87,7 @@ export default function Footer() {
 
   return (
     <footer className="flex w-full flex-col border-t border-gray-600">
-      <div className="max-w-7xl px-6 py-8 mt-8">
+      <div className="px-6 py-8 mt-8">
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-8 md:pr-8 mt-6">
             <div className="flex items-center justify-start">
@@ -122,7 +129,8 @@ export default function Footer() {
             </div>
           </div>
         </div>
-        <Divider className="mt-16" />
+
+        <Divider className="my-8" />
         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
           <div className="flex space-x-2">
             <div>{`©${currentYear}`}</div>{" "}

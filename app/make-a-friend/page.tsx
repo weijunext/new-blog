@@ -60,6 +60,7 @@ const content = `
 
 ## 💡 我的产品与项目
 
+- [**PH Copilot(Product Hunt 助手)**](https://PHCopilot.AI/)
 - [**SmartExcel**](https://smartexcel.cc/)
 - [**Next.js 生态圈技术分享**](https://github.com/weijunext/nextjs-learn-demos)
 - [**信息差——独立开发者出海周刊**](https://gapis.money)

@@ -1,0 +1,237 @@
+---
+title: Next.js 缓存策略的未来方向
+description: 这是一个对开发者很不好的消息——Next.js 的缓存策略要在 15 版本出现 breaking change 了。
+slug: nextjs-new-cache-strategy
+tags: NextJS
+date: 2024-07-26
+---
+
+这是一个对开发者很不好的消息——Next.js 的缓存策略要在 15 版本出现 breaking change 了。说这是不好的消息，不是说新的缓存策略不好，而是说缓存作为 Next.js 基础设施之一，居然可以这样轻松变更设计，开发者如果没有注意变更文档，很容易因为升级版本掉坑里，而知道变更的开发者更可能因为修改范围太大而拒绝升级版本，也会因此错过新版本的其他特性的性能优化。
+
+不过，上面说的权当吐槽吧，因为该学的还得学，谁让咱们是前端，早就对这样的变化脱敏了。
+
+这次的 breaking change 总结来说是这样的：默认行为从“默认缓存"转变为”默认不缓存“。
+
+缓存策略变更后影响到三大块请求：
+
+- fetch 请求默认使用 'no-store'
+- GET 路由处理程序默认不缓存
+- 客户端路由默认不缓存页面组件
+
+接下来详细介绍变更前后的区别，阅读后你就能对升级版本需要做的事情有明确的思路了。
+
+## fetch 请求默认使用 'no-store'
+
+在 Next.js 14 中，fetch 请求默认使用 'force-cache' 策略，也就是说数据会被默认缓存。
+
+```ts
+// Next.js 14
+async function getData() {
+  // 这个请求会默认被缓存
+  const res = await fetch('https://api.weijunext.com/')
+  return res.json()
+}
+
+export default async function Page() {
+  const data = await getData()
+  return <div>{data.title}</div>
+}
+```
+
+在 Next.js 15 中，fetch 请求默认使用 'no-store' 策略，也就是默认不缓存。
+
+```js
+// Next.js 15
+async function getData() {
+  // 这个请求默认不会被缓存，每次都会重新获取数据
+  const res = await fetch('https://api.weijunext.com/')
+  return res.json()
+}
+
+export default async function Page() {
+  const data = await getData()
+  return <div>{data.title}</div>
+}
+```
+
+如果在 Next.js 15 中想要缓存数据，我们需要明确指定缓存参数。例如：
+
+1. 在单个 fetch 调用中设置缓存选项：
+
+```js
+async function getData() {
+  const res = await fetch('https://api.weijunext.com/', { cache: 'force-cache' })
+  return res.json()
+}
+```
+
+2. 为路由段设置缓存选项
+
+如果单个路由段（即一个页面或一个布局文件）里有多个 fetch 请求，可以通过在文件顶部添加配置统一设置缓存策略：
+
+```js
+export const dynamic = 'force-static' // 添加配置
+
+export default async function Page() {
+  const res = await fetch('https://gapis.money')
+  const data = await res.json()
+  return <div>{data.title}</div>
+}
+```
+
+或者
+
+```js
+const fetchCache = 'default-cache' // 添加配置
+
+export default async function Page() {
+  const res = await fetch('https://gapis.money')
+  const data = await res.json()
+  return <div>{data.title}</div>
+}
+```
+
+添加这两种参数配置后，对应的路由段内的 fetch 请求都会由默认不缓存变成默认缓存。
+
+## GET 路由处理程序默认不缓存
+
+在 Next.js 14 中，GET 路由处理程序默认会被缓存。
+
+```js
+// Next.js 14, app/api/data/route.js
+
+import { NextResponse } from 'next/server'
+
+export async function GET() {
+  // 这个处理程序默认会被缓存
+  const data = await fetchSomeData()
+  return NextResponse.json({ data })
+}
+```
+
+在这个示例中，除非使用了动态函数（如 cookies()、headers()）或设置了动态配置选项，否则这个 GET 处理程序的**响应**会被缓存。
+
+在 Next.js 15 中，GET 路由处理程序默认不再缓存。
+
+```js
+// Next.js 15, app/api/data/route.js
+
+import { NextResponse } from 'next/server'
+
+export async function GET() {
+  // 这个处理程序默认不会被缓存，每次请求都会执行
+  const data = await fetchSomeData()
+  return NextResponse.json({ data })
+}
+```
+
+如果在 Next.js 15 中想要缓存 GET 路由处理程序，也可以通过添加 `export const dynamic = 'force-static'` 来实现。
+
+```js
+// Next.js 15, app/api/data/route.js
+
+import { NextResponse } from 'next/server'
+
+// 使用 'force-static' 来缓存这个路由处理程序
+export const dynamic = 'force-static'
+
+export async function GET() {
+  const data = await fetchSomeData()
+  return NextResponse.json({ data })
+}
+```
+
+<Aside>
+对于特殊的路由处理程序，如 sitemap.ts、opengraph-image.tsx、 icon.tsx 以及其他 Metadata 文件，在 Next.js 15 中默认行为保持不变，它们仍然默认为静态的。
+</Aside>
+
+## 客户端路由默认不缓存页面组件
+
+在 Next.js 14.2.0 中，引入了实验性的 `staleTimes` 标志，允许自定义配置路由器缓存。默认情况下，动态路由的 staleTime 是一个非零值，默认是30，如果在 \<Link> 组件里设置了 prefetch 参数，则默认是5分钟。
+
+```js
+// Next.js 14.2.0, next.config.js
+module.exports = {
+  experimental: {
+    // 默认情况下，页面组件会被缓存一段时间。
+    staleTimes: {
+      dynamic: 30,
+      static: 180
+    },
+  },
+}
+```
+
+在 Next.js 15 中，Page 段的 `staleTime` 默认为 0，这意味着在应用内导航时，客户端将始终获取最新的页面组件数据。
+
+```js
+// app/page.js
+export default function Page({ params }) {
+  // 这个组件在每次导航时都会重新获取
+  return <div>Page Content</div>
+}
+```
+
+如果我们想在 Next.js 15 中保持原来的缓存行为，可以手动配置：
+
+```js
+// Next.js 15, next.config.js
+module.exports = {
+  experimental: {
+    staleTimes: {
+      dynamic: 30, // 手动设置动态路由的 staleTime 为 30 秒
+      static: 180
+    },
+  },
+}
+```
+
+### 客户端路由不变的行为
+
+1. 路由切换，共享布局不会重新获取：
+
+```js
+// app/layout.js
+export default function Layout({ children }) {
+  // 这个布局组件的数据不会在导航时重新获取
+  return <div>{children}</div>
+}
+```
+
+2. Loading.js 仍然自动缓存：
+
+```js
+// app/loading.js
+export default function Loading() {
+  // 这个组件会被缓存 5 分钟或 staleTimes.static 配置的值
+  return <div>Loading...</div>
+}
+```
+
+3. 后退/前进导航仍然自动缓存
+
+## 结语
+
+从 Next.js 团队释放的信息来看，缓存策略的变更是为了提供更灵活的控制方案，而且把控制权交由开发者。我觉得这种做法是对的，但是应该在 app router 推出的时候就考虑到，而不是经过了两个大版本的更新才修正。
+
+不过无论如何，变化已经来了，前端圈唯一不变的就是一直变化，所以接受变化吧！
+
+阅读完以上内容你应该就知道升级版本要修改哪些地方了，现在 15 版本刚发布 [rc 版](https://weijunext.com/article/nextjs-15-rc)，距离正式版发布还有一段时间，提前做好理论知识准备，等正式迁移的时候才能得心应手。
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://twitter.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://twitter.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)

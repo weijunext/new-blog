@@ -1,0 +1,552 @@
+---
+title: 性能优先！给 Next.js 添加页面切换过渡效果
+description: 基于 Next.js、React startTransition、HTML View Transitions API 实现页面切换动画组件的思路分析。
+slug: nextjs-view-transitions
+tags: NextJS,NextJS实战
+date: 2024-08-10
+
+---
+
+群友发了一个页面跳转有过渡动画的网站，问：Next.js 项目怎么做页面切换的过渡动画？
+
+作为「辛苦优化一个月，生产上线两用户」的受害者之一，我本来觉得这都不是现在该考虑的问题。
+
+![3000](/assets/056/3000.webp)
+
+不过转念一想，作为 Next.js 手艺人，写文章都只写 Next.js 技巧的开发者，我还是有必要了解一下这个问题的解决方案。而且，万一将来页面过渡的手艺有用武之地呢？
+
+实测了几种实现方案后，我选择了一种性能最佳的方案——结合 HTML View Transition API 和 React startTransition 来实现，这种方案的好处是使用了浏览器的原生 API，性能更好，而且 React startTransition 可以优化 UI 的响应。
+
+读完本文你将学会：
+
+1. HTML View Transition API 的用法
+2. React startTransition 的用法
+3. 手写页面切换过渡动画的高性能方案
+4. 分析一个同类方案里的最佳实践
+
+## HTML View Transition API 的用法介绍
+
+View Transition API 是一个发布没多久的 HTML 新特性，它可以让网页在不同状态或页面之间切换时，创建流畅的过渡动画效果，这种效果可以让用户体验更加丝滑。
+
+在 View Transitions API 发布之前，只能通过 JavaScript 和 CSS 来实现过渡效果，有了这个新特性，开发者可以直接使用浏览器的原生能力实现过渡效果，这样性能更佳，代码也更简洁。
+
+### View Transitions API 的基本用法
+
+View Transitions API 用法分为两种情况：单页应用（SPA）和多页应用（MPA）。
+
+在单页应用（SPA）中的使用：
+
+```js
+if (document.startViewTransition) {
+  document.startViewTransition(() => {
+    // 在这里更新 DOM
+    updateDOM();
+  });
+} else {
+  // 对于不支持的浏览器,直接更新 DOM
+  updateDOM();
+}
+```
+
+这段代码会在支持 View Transitions 的浏览器中创建一个平滑的过渡效果，而在不支持的浏览器中则没有过渡效果，但不影响其他功能。
+
+在多页应用（MPA）中的使用：
+
+```css
+@view-transition {
+  navigation: auto;
+}
+```
+
+这样就可以在页面导航时自动应用视图转换效果。
+
+这是 View Transitions API 的基本用法，除此之外，开发者还可以实现自定义转换效果、为不同元素设置不同的动画和控制视图转换流程，这些不是本文的要点，你可以到 [MDN 文档](https://developer.mozilla.org/en-US/docs/Web/API/View_Transitions_API/Using)进行学习。
+
+
+## React startTransition 的用法介绍
+
+startTransition 是 React 18 发布的新特性。它允许开发者将某些状态更新标记为“过渡”（Transition），被标记后这些更新会被标记为“低优先级”，它们是非阻塞的，如果有其他更高优先级的更新（比如用户输入），React会先处理这些高优先级更新，高优先级更新完成后再重启 startTransitions 里面的状态更新，以此保障 UI 的响应性。
+
+### startTransition 的基本用法
+
+StartTransition 的用法很简单，下面是一个 tab 切换的示例：
+
+```js
+import React, { useState, startTransition } from 'react';
+
+function TabContainer() {
+  const [tab, setTab] = useState('about');
+
+  function selectTab(nextTab) {
+    startTransition(() => {
+      // 在这里进行状态更新
+      setTab(nextTab);
+    });
+  }
+
+  return (
+    <div>
+      <button onClick={() => selectTab('about')}>About</button>
+      <button onClick={() => selectTab('posts')}>Posts</button>
+      <button onClick={() => selectTab('contact')}>Contact</button>
+      {tab === 'about' && <AboutTab />}
+      {tab === 'posts' && <PostsTab />}
+      {tab === 'contact' && <ContactTab />}
+    </div>
+  );
+}
+```
+
+## 手写页面切换过渡动画的高性能方案
+
+我们先来分析一下，实现页面切换过渡效果，要考虑哪些场景？
+
+1. `<Link>` 组件跳转页面
+2. 浏览器前进后退跳转页面
+
+现在就来依次实现这两个场景的过渡效果。
+
+### 覆盖 `<Link>` 组件跳转行为
+
+读过 Next.js 源码的朋友都知道，Next.js 的 `<Link>` 标签是对 HTML `<a>` 标签的封装，其中跳转行为不是使用 `<a>` 标签的 `href` 属性，而是使用 `onClick` 拦截了跳转，并且在点击事件里用浏览器的 history API 来完成跳转。
+
+我们想要在 `<Link>` 标签上实现过渡效果，可以依葫芦画瓢，用相似的思路来做——写一个自定义 `onClick` 事件，自己实现跳转的行为。
+
+新建一个文件 `components/TransitionLink.tsx`：
+
+```js
+"use client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React from "react";
+
+const TransitionLink = ({ href, children, ...props }) => {
+  const router = useRouter();
+
+  const handleClick = (e) => {
+    e.preventDefault();
+    console.log('拦截跳转行为')
+  };
+
+  return (
+    <Link href={href} onClick={handleClick} {...props}>
+      {children}
+    </Link>
+  );
+};
+
+export default TransitionLink;
+```
+
+这段代码里，我们自定义了 `onClick` 事件，并把其他 `props` 参数原样传递。
+
+现在把代码里原有的 `<Link>` 用 `<TransitionLink>` 替换，点击会发现页面没有跳转，但是浏览器控制台打印出 `拦截跳转行为`，这就说明被我们拦截成功了。
+
+接下来使用 View Transition 和 history API 加入跳转代码：
+
+```js
+"use client";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import React from "react";
+
+const TransitionLink = ({ href, children, ...props }) => {
+  const router = useRouter();
+
+  const handleClick = (e) => {
+    e.preventDefault();
+
+    // View Transition 过渡
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        router.push(href); // 示例只考虑 push 的情况，正式封装需要考虑 replace
+      });
+    } else {
+      router.push(href);
+    }
+  };
+
+  return (
+    <Link href={href} onClick={handleClick} {...props}>
+      {children}
+    </Link>
+  );
+};
+
+export default TransitionLink;
+```
+
+相比上一段代码，这里只增加了 `document.startViewTransition` 方法。
+
+现在到页面上尝试跳转页面，会看到轻微的过渡效果。因为 View Transition 默认过渡时间是 0.3 秒，肉眼可能辨别不出来有过渡效果。
+
+为了让过渡效果更明显，可以在全局样式中修改过渡时间，修改 `styles/globals.css`：
+
+```css
+:root {
+  --view-transition-duration: 1s;
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: var(--view-transition-duration); // 覆盖默认过渡时间
+}
+```
+
+再去尝试跳转，就会看到非常明显的过渡效果了。
+
+为了让这里的过渡效果不阻塞 UI 的响应，最好再加上 React startTransition 方法：
+
+```js
+    // ……
+
+    if (document.startViewTransition) {
+      document.startViewTransition(() => {
+        React.startTransition(() => { // 新增 startTransition
+          router.push(href);
+        });
+      });
+    } else {
+      router.push(href);
+    }
+
+    // ……
+```
+
+一个简单的 `<Link>` 跳转过渡效果就大功告成了。
+
+### 覆盖浏览器前进后退过渡效果
+
+浏览器前进后退和 `<Link>` 标签导航有所不同，后者可以通过封装组件精准修改跳转行为，但是前者在页面内没有指定的载体，我们只能通过构建一个 Context 来包裹页面或需要过渡动画的组件来实现页面或指定页面区域的过渡效果。
+
+同时，[熟悉 HMTL history API](https://developer.mozilla.org/en-US/docs/Web/API/Window/popstate_event) 的朋友都知道，浏览器历史堆栈的变化会触发 popstate 事件。那么我们就可以尝试通过改写 popstate 事件来实现视图过渡的效果。
+
+所以，要实现浏览器前进后退的跳转过渡，需要两步骤：
+
+第一步：创建 Context，包裹页面：
+
+```js
+// components/TransitionProvider.tsx
+
+"use client";
+import React, { createContext, useContext } from "react";
+
+const TransitionContext = createContext(null);
+
+export const useTransitionContext = () => useContext(TransitionContext);
+
+export const TransitionProvider = ({ children }) => {
+
+  return <TransitionContext.Provider>{children}</TransitionContext.Provider>;
+};
+
+```
+
+在 `layout.tsx` 中引入 provider
+
+```js
+// app/layout.tsx
+
+// ……
+        <body>
+          <TransitionProvider>
+            // ……
+          </TransitionProvider>
+        </body>
+// ……
+```
+第二步，创建一个独立的 hook，用于改写 `window` 的 `popstate` 事件，让它执行 `document.startViewTransition` 方法，并在 TransitionProvider.tsx 中调用
+
+```js
+// components/TransitionProvider.tsx
+
+"use client";
+import React, { createContext, useContext } from "react";
+import useSimplifiedViewTransition from '@/hooks/useSimplifiedViewTransition'
+
+const TransitionContext = createContext(null);
+
+export const useTransitionContext = () => useContext(TransitionContext);
+
+export const TransitionProvider = ({ children }) => {
+
+  useSimplifiedViewTransition() // 新增
+
+  return <TransitionContext.Provider>{children}</TransitionContext.Provider>;
+};
+```
+
+在 useSimplifiedViewTransition 里面，我们在 useEffect 里定义修改的 popstate 事件：
+
+```js
+import { useEffect } from 'react';
+
+function useSimplifiedViewTransition() {
+
+  useEffect(() => {
+    if (!document.startViewTransition) {
+      console.log('浏览器不支持 View Transitions API');
+      return;
+    }
+
+    const handlePopState = () => {
+      console.log('视图切换');
+
+      document.startViewTransition(() => {
+        // 浏览器自动处理视图转换
+        console.log('startViewTransition');
+      });
+    };
+
+    // 添加 popstate 事件监听器
+    window.addEventListener('popstate', handlePopState);
+
+    // 清理函数
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+}
+
+export default useSimplifiedViewTransition;
+```
+
+在这段代码里，我们只在首次渲染的时候定义 popstate 事件，后面每一次点击浏览器的前进后退按钮，都会触发 `handlePopState` 方法。
+
+不过，这样实现存在一个问题，虽然每一次点击前进后退 `handlePopState` 都会触发，但是过渡效果可能只在第一次点击的时候会出现。这是因为这段代码里，执行到 `document.startViewTransition` 的时候，DOM 已经完成更新了。
+
+那么应该如何修改才能实现每一次点击浏览器前进后退都有过渡效果呢？下一节的最佳实践就来解决这个问题。
+
+## 最佳实践源码分析
+
+根据上面实现的思路去搜索类似的库，我找到了 [next-view-transitions](https://github.com/shuding/next-view-transitions) 这个仓库，它更完整地实现了 `<Link>` 跳转页面和点击浏览器前进后退按钮跳转页面的过渡效果，本节我们就来学习一下这个仓库的源码。
+
+仓库核心文件有 4 个，其中 index.js 只是导出必要的方法，可以忽略掉。
+
+`<Link>` 组件被封装在 `link.tsx` 文件里，下面代码已删掉非核心逻辑的代码，如果要看完整代码请到开源仓库查看：
+
+```tsx
+import NextLink from 'next/link'
+import { useRouter } from 'next/navigation'
+import { startTransition, useCallback } from 'react'
+import { useSetFinishViewTransition } from './transition-context'
+
+export function Link(props: React.ComponentProps<typeof NextLink>) {
+  const router = useRouter()
+  const finishViewTransition = useSetFinishViewTransition()
+  const { href, as, replace, scroll } = props
+
+  const onClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>) => {
+      // 如果提供了自定义的 onClick 处理函数，先执行它
+      if (props.onClick) {
+        props.onClick(e)
+      }
+
+      // 检查浏览器是否支持 startViewTransition API
+      if ('startViewTransition' in document) {
+        // 阻止默认的链接点击行为
+        e.preventDefault()
+
+        // @ts-ignore
+        document.startViewTransition(
+          () =>
+            new Promise<void>((resolve) => {
+              // 使用 React 的 startTransition 来标记低优先级更新
+              startTransition(() => {
+                // 根据 replace 属性决定使用 router.replace 还是 router.push
+                router[replace ? 'replace' : 'push'](as || href, {
+                  scroll: scroll ?? true,
+                })
+                // 设置完成视图转换的回调，该回调会在适当的时机解析 Promise
+                finishViewTransition(() => resolve)
+              })
+            })
+        )
+      }
+    },
+    // 依赖数组，当这些值变化时会重新创建 onClick 函数
+    [props.onClick, href, as, replace, scroll]
+  )
+
+  // 返回增强的 NextLink 组件，传递所有原始 props 和新的 onClick 处理函数
+  return <NextLink {...props} onClick={onClick} />
+}
+```
+
+这个 `<Link>` 组件与前文我们实现的 `<TransitionLink>` 组件思路一样，但多了 API 可用性的判断和路由跳转方法的判断。
+
+第三个文件是 `transition-context.tsx`，
+
+```tsx
+import type { Dispatch, SetStateAction } from 'react'
+import { createContext, use, useEffect, useState } from 'react'
+
+import { useBrowserNativeTransitions } from './browser-native-events'
+
+// 创建一个 Context 用于管理视图转换的完成函数
+// 默认值是一个返回空函数的函数，确保在 Provider 外使用时不会出错
+const ViewTransitionsContext = createContext<
+  Dispatch<SetStateAction<(() => void) | null>>
+>(() => () => {})
+
+export function ViewTransitions({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  // 状态用于存储当前的视图转换完成函数
+  const [finishViewTransition, setFinishViewTransition] = useState<
+    null | (() => void)
+  >(null)
+
+  // 当 finishViewTransition 函数被设置时，执行它并重置状态
+  useEffect(() => {
+    if (finishViewTransition) {
+      finishViewTransition()
+      setFinishViewTransition(null)
+    }
+  }, [finishViewTransition])
+
+  // 使用自定义 hook 来处理浏览器原生的转换事件
+  useBrowserNativeTransitions()
+
+  // 提供 Context，允许子组件访问和设置 finishViewTransition
+  return (
+    <ViewTransitionsContext.Provider value={setFinishViewTransition}>
+      {children}
+    </ViewTransitionsContext.Provider>
+  )
+}
+
+// 自定义 hook，用于获取设置 finishViewTransition 的函数
+export function useSetFinishViewTransition() {
+  return use(ViewTransitionsContext)
+}
+```
+
+这部分的逻辑也不难理解，关键就在调用了 `useBrowserNativeTransitions()` 这个hook，我们来看看这个 hook 是怎么实现浏览器前进后退过渡效果的。
+
+```ts
+// ./browser-native-events.ts
+
+import { useEffect, useRef, useState, use } from 'react'
+import { usePathname } from 'next/navigation'
+
+export function useBrowserNativeTransitions() {
+  // 获取当前路径名
+  const pathname = usePathname()
+  // 使用 ref 存储当前路径名，以便在不触发重渲染的情况下更新
+  const currentPathname = useRef(pathname)
+
+  // 创建一个状态来跟踪视图转换
+  // 状态为 null 或包含两个元素的元组：
+  // 1. Promise: 等待视图转换开始
+  // 2. 函数: 用于完成视图转换
+  const [currentViewTransition, setCurrentViewTransition] = useState<
+    null | [Promise<void>, () => void]
+  >(null)
+
+  useEffect(() => {
+    // 检查浏览器是否支持 startViewTransition API
+    if (!('startViewTransition' in document)) {
+      return () => {}
+    }
+
+    // 定义 popstate 事件处理函数
+    const onPopState = () => {
+      let pendingViewTransitionResolve: () => void
+
+      // 创建一个 Promise，用于控制视图转换的结束
+      const pendingViewTransition = new Promise<void>((resolve) => {
+        pendingViewTransitionResolve = resolve
+      })
+
+      // 创建一个 Promise，用于等待视图转换开始
+      const pendingStartViewTransition = new Promise<void>((resolve) => {
+        // @ts-ignore
+        document.startViewTransition(() => {
+          resolve() // 解析 Promise，表示转换已开始
+          return pendingViewTransition // 返回控制转换结束的 Promise
+        })
+      })
+
+      // 更新状态，存储转换相关的 Promise 和解析函数
+      setCurrentViewTransition([
+        pendingStartViewTransition,
+        pendingViewTransitionResolve!,
+      ])
+    }
+
+    // 添加 popstate 事件监听器
+    window.addEventListener('popstate', onPopState)
+
+    // 清理函数：移除事件监听器
+    return () => {
+      window.removeEventListener('popstate', onPopState)
+    }
+  }, [])
+
+  // 如果存在当前视图转换且路径发生变化
+  if (currentViewTransition && currentPathname.current !== pathname) {
+    // 使用 React 的 use 函数阻塞渲染，直到视图转换开始
+    // 这确保在 DOM 被截图之前，新的内容不会被渲染
+    use(currentViewTransition[0])
+  }
+
+  // 使用 ref 保持转换引用的最新状态
+  const transitionRef = useRef(currentViewTransition)
+  useEffect(() => {
+    transitionRef.current = currentViewTransition
+  }, [currentViewTransition])
+
+  // 确保在新路由组件挂载后完成视图转换
+  useEffect(() => {
+    // 当新路由组件实际挂载时
+    currentPathname.current = pathname // 更新当前路径
+
+    // 如果存在转换，完成它
+    if (transitionRef.current) {
+      transitionRef.current[1]() // 调用解析函数完成转换
+      transitionRef.current = null // 重置转换状态
+    }
+  }, [pathname])
+}
+```
+
+这段代码的关键点之一是：
+
+```ts
+  if (currentViewTransition && currentPathname.current !== pathname) {
+    use(currentViewTransition[0])
+  }
+```
+
+这里使用 React 的 use 函数抛出一个 promise 来“挂起”组件的渲染，直到视图转换开始，这样确保了新的路由内容不会在视图转换开始之前渲染，从而实现平滑转换。
+
+
+## 结语
+
+使用 HTML View Transition API 和 React startTransition 结合的方案实现页面切换过渡效果，既不需要引入额外的 JS 包，还因为使用的是原生 API 更节约性能，这大概就是目前性能最优的过渡效果方案了。
+
+如果想知道本文代码最终实现的过渡效果如何，可以分别到 [weijunext.com](https://weijunext.com) 和 [gapis.money](https://gapis.money) 对比一下，用肉眼感受一下添加过渡效果和没添加过渡效果的区别。
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://x.com/weijunext)
+- **Twitter(English)**: [@wayne_dev](https://x.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

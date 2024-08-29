@@ -113,6 +113,7 @@ const SearchBar = () => {
             results.map((result, index) => (
               <Link
                 key={`${result.id}_${index}`}
+                title={result.doc.title}
                 // get the right url
                 href={`/article/${result.id.split("_")[0]}`}
                 onClick={finishSearch}

@@ -11,6 +11,7 @@ const HeaderLinks = () => {
         <Link
           key={link.name}
           href={link.href}
+          title={link.name}
           target="_blank"
           rel="noopener norefferer nofollow"
           className="mx-2 flex max-w-[24px] flex-col items-center justify-center"

@@ -103,6 +103,7 @@ export default async function PostDetailsPage({ params }: Props) {
             <div>发布时间：{dayjs(date).format("YYYY-MM-DD")}</div>
             <Link
               href="https://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh-hans"
+              title="版权声明"
               target="_blank"
               rel="noopener noreferrer nofollow"
               className="link link-hover"
@@ -115,24 +116,33 @@ export default async function PostDetailsPage({ params }: Props) {
           </div>
           <div className="flex gap-2 flex-col lg:flex-row">
             {prevPost ? (
-              <Link href={prevPost.slug} className="link-underline">
+              <Link
+                href={prevPost.slug}
+                className="link-underline"
+                title="上一篇"
+              >
                 上一篇
               </Link>
             ) : (
               <></>
             )}
             {nextPost ? (
-              <Link href={nextPost.slug} className="link-underline">
+              <Link
+                href={nextPost.slug}
+                className="link-underline"
+                title="下一篇"
+              >
                 下一篇
               </Link>
             ) : (
               <></>
             )}
-            <Link href="/" className="link-underline">
+            <Link href="/" className="link-underline" title="去首页">
               去首页
             </Link>
             <Link
               href="https://twitter.com/weijunext/"
+              title="Twitter/X"
               target="_blank"
               rel="noopener noreferrer nofollow"
               className="link-underline"

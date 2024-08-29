@@ -71,6 +71,7 @@ export default function Footer() {
               <Link
                 className="text-default-500"
                 href={item.href}
+                title={item.name}
                 size="sm"
                 target={item.target || "_blank"}
                 rel={item.nofollow ? "noopener noreferrer nofollow" : ""}
@@ -134,7 +135,11 @@ export default function Footer() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4">
           <div className="flex space-x-2">
             <div>{`©${currentYear}`}</div>{" "}
-            <Link href={authors[0].twitter || authors[0].url} target="_blank">
+            <Link
+              href={authors[0].twitter || authors[0].url}
+              title={authors[0].name}
+              target="_blank"
+            >
               {authors[0].name}
             </Link>{" "}
             <div>All rights reserved.</div>

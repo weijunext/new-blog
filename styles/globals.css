@@ -1,13 +1,13 @@
 @import './scrollbar.css';
-@import url('https://cdn.bootcdn.net/ajax/libs/lxgw-wenkai-webfont/1.6.0/style.min.css');
+@import 'lxgw-wenkai-lite-webfont/style.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 html {
   scroll-behavior: smooth !important;
- }
- 
+}
+
 @layer base {
   :root {
     /* #9bdbee */
@@ -23,32 +23,32 @@ html {
 
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
- 
+
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
- 
+
     --primary: 222.2 47.4% 11.2%;
     --primary-foreground: 210 40% 98%;
- 
+
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
- 
+
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
- 
+
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
- 
+
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
- 
+
     --radius: 0.5rem;
   }
- 
+
   .dark {
     /* #9bdbee */
     --main:  194, 70.9%, 77.1%;
@@ -95,7 +95,12 @@ html {
   }
   body {
     @apply bg-background text-foreground;
-    font-family: "LXGW WenKai", sans-serif;
+    font-family: "LXGW WenKai Lite", sans-serif;
+  }
+
+  /* Mono font (optional) */
+  pre,code {
+    font-family: "LXGW WenKai Mono Lite", sans-serif;
   }
 }
 .link-hover {

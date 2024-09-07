@@ -18,17 +18,18 @@ const footerNavigation = {
       nofollow: true,
     },
   ],
-  openSource: [
-    { name: "Smart Excel AI", href: "https://smartexcel.cc/" },
+  learning: [
+    { name: "Next.js 中文文档", href: "https://nextjscn.org/" },
     { name: "Next.js Practice", href: "https://nextjs.weijunext.com/" },
   ],
   boilerplate: [
-    { name: "Next.js Clean Starter", href: "https://starter.weijunext.com/" },
+    { name: "Smart Excel AI", href: "https://smartexcel.cc/" },
     {
       name: "Landing Page Boilerplate",
       href: "https://landingpage.weijunext.com/?utm_source=weijunext",
     },
     { name: "Weekly Boilerplate", href: "https://weekly.weijunext.com/" },
+    { name: "Next.js Clean Starter", href: "https://starter.weijunext.com/" },
   ],
   indieHacker: [
     {
@@ -109,15 +110,15 @@ export default function Footer() {
               </div>
               <div className="mt-10 md:mt-0">
                 {renderList({
-                  title: "开源项目",
-                  items: footerNavigation.openSource,
+                  title: "Next.js 学习",
+                  items: footerNavigation.learning,
                 })}
               </div>
             </div>
             <div className="md:grid md:grid-cols-2 md:gap-8">
               <div>
                 {renderList({
-                  title: "Next.js模板",
+                  title: "Next.js 模板",
                   items: footerNavigation.boilerplate,
                 })}
               </div>

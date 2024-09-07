@@ -61,11 +61,12 @@ const content = `
 ## 💡 我的产品与项目
 
 - [**PH Copilot(Product Hunt 助手)**](https://PHCopilot.AI/)
-- [**SmartExcel**](https://smartexcel.cc/)
+- [**Next.js 中文文档**](https://nextjscn.org/)
 - [**Next.js 生态圈技术分享**](https://github.com/weijunext/nextjs-learn-demos)
 - [**信息差——独立开发者出海周刊**](https://gapis.money)
-- [**Weekly Boilerplate**](https://weekly.weijunext.com)
+- [**SmartExcel - SaaS 模板**](https://smartexcel.cc/)
 - [**Landing Page Boilerplate**](https://landingpage.weijunext.com)
+- [**Weekly Boilerplate**](https://weekly.weijunext.com)
 - [**Next.js Starter**](https://starter.weijunext.com/)
 - **HelloAI**（已关闭）
 

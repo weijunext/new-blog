@@ -44,6 +44,7 @@ export async function getPosts(): Promise<{ posts: BlogPost[] }> {
           category: data.category,
           tags: data.tags,
           date: data.date,
+          description: data.description,
           visible,
           pin,
           content,

@@ -65,7 +65,7 @@ const content = `
 - [**PH Copilot(Product Hunt 助手)**](https://PHCopilot.AI/)
 - **HelloAI**（已关闭）
 
-## 我的开源与教程
+## 🧑‍💻 我的开源与教程
 
 - [**Next.js 生态圈技术分享**](https://github.com/weijunext/nextjs-learn-demos)
 - [**Chrome插件全栈开发教程(付费)**](https://xiaobot.net/p/ship-ph-copilot)

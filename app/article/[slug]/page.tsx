@@ -105,7 +105,7 @@ export default async function PostDetailsPage({ params }: Props) {
             <div>推荐全栈学习资源：</div>
             <li>
               <Link
-                href="https://nextjscn.org/docs?utm_source=gapis.money"
+                href="https://nextjscn.org/docs?utm_source=weijunext.com"
                 title="Next.js 中文文档"
                 target="_blank"
                 className="link-underline"

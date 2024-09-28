@@ -23,12 +23,12 @@ date: 2023-07-02
 
 ![02.png](/assets/003/02.png)
 
-然后修改nginx配置，比如我想要通过 https://helloai.wiki/MP_verify_xxxxxxx.txt 访问这个校验文件，我就需要在原有的配置下添加这个文件的路径配置
+然后修改nginx配置，比如我想要通过 https://weijunext.com/MP_verify_xxxxxxx.txt 访问这个校验文件，我就需要在原有的配置下添加这个文件的路径配置
 
 ```jsx
 server {
     listen 443 ssl http2;
-    server_name helloai.wiki;
+    server_name weijunext.com;
     ……
 
     # nginx是就近原则，匹配到即执行，所以这个配置要写在txt后缀配置前面才可以

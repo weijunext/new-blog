@@ -1,6 +1,7 @@
 import Comments from "@/components/Comments";
 import PostList from "@/components/PostList";
 import TOC from "@/components/TOC";
+import { Aside } from "@/components/mdx/Aside";
 import MDXComponents from "@/components/mdx/MDXComponents";
 import { Separator } from "@/components/ui/separator";
 import { siteConfig } from "@/config/site";
@@ -100,6 +101,32 @@ export default async function PostDetailsPage({ params }: Props) {
       <div className="w-full md:w-3/5 px-2 md:px-12">
         <article id={`article`}>
           <h1>{title}</h1>
+          <Aside icon="🧑‍💻">
+            <div>推荐全栈学习资源：</div>
+            <li>
+              <Link
+                href="https://nextjscn.org/docs?utm_source=gapis.money"
+                title="Next.js 中文文档"
+                target="_blank"
+                className="link-underline"
+              >
+                Next.js 中文文档
+              </Link>
+              ：样式和官网一样的中文文档，创造沉浸式Next.js中文学习体验。
+            </li>
+            <li>
+              <Link
+                href="https://xiaobot.net/p/ship-ph-copilot?refer=1e5db497-8ed5-461b-af85-e71cb80e3787"
+                title="PHCopilot.AI"
+                target="_blank"
+                className="link-underline"
+                rel="noopener norefferer nofollow"
+              >
+                《Chrome插件全栈开发》
+              </Link>
+              ：真实出海项目的实战教学课，讲解Chrome插件和Next.js端的全栈开发，帮助你半个月内成为全栈出海工程师。
+            </li>
+          </Aside>
           <MDXRemote
             source={content}
             components={MDXComponents}

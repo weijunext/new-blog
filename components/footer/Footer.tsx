@@ -15,12 +15,17 @@ const footerNavigation = {
     {
       name: "版权声明",
       href: "https://creativecommons.org/licenses/by-nc-nd/3.0/deed.zh-hans",
-      nofollow: true,
+      rel: "noopener noreferrer nofollow",
     },
   ],
   learning: [
     { name: "Next.js 中文文档", href: "https://nextjscn.org/" },
     { name: "Next.js Practice", href: "https://nextjs.weijunext.com/" },
+    {
+      name: "Chrome插件全栈教程",
+      href: "https://xiaobot.net/p/ship-ph-copilot/",
+      rel: "noopener noreferrer nofollow",
+    },
   ],
   boilerplate: [
     { name: "Smart Excel AI", href: "https://smartexcel.cc/" },
@@ -29,7 +34,6 @@ const footerNavigation = {
       href: "https://landingpage.weijunext.com/?utm_source=weijunext",
     },
     { name: "Weekly Boilerplate", href: "https://weekly.weijunext.com/" },
-    { name: "Next.js Clean Starter", href: "https://starter.weijunext.com/" },
   ],
   indieHacker: [
     {
@@ -43,6 +47,7 @@ const footerNavigation = {
     {
       name: "Indie Hacker Tools",
       href: "https://github.com/weijunext/indie-hacker-tools",
+      rel: "noopener noreferrer nofollow",
     },
   ],
 };
@@ -61,7 +66,7 @@ export default function Footer() {
         name: string;
         href: string;
         target?: string;
-        nofollow?: boolean;
+        rel?: string;
       }[];
     }) => (
       <div>
@@ -75,7 +80,7 @@ export default function Footer() {
                 title={item.name}
                 size="sm"
                 target={item.target || "_blank"}
-                rel={item.nofollow ? "noopener noreferrer nofollow" : ""}
+                rel={item.rel || ""}
               >
                 {item.name}
               </Link>

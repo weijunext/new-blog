@@ -44,13 +44,12 @@ const content = `
 你可以通过以下方式赞助我：
 
 <a href="https://www.buymeacoffee.com/weijunext" target="_blank">
-  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style={{ height: '50px !important' }} />
+  <img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style={{ height: '41px !important' }} />
 </a>
 
-
-<a href="https://afdian.net/a/weijunext" target="_blank">
-  <img src="/afd.png" alt="在爱发电支持我" style={{ height: '66px !important' }} className="pt-4" />
-</a>
+<a href='https://ko-fi.com/G2G6TWWMG' target='_blank'>
+  <img src='https://storage.ko-fi.com/cdn/kofi3.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com' style={{ height: '41px !important' }} className="my-4" />
+  </a>
 
 <img src="/zs.jpeg" alt="赞赏作者" style={{ width: '300px' }} className="py-4" />
 
@@ -82,5 +81,7 @@ const content = `
 - *佐
 
 - a**y
+
+- Cla*998
 
 `;

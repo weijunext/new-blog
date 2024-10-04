@@ -1,0 +1,110 @@
+---
+title: 尤雨溪宣布成立 VoidZero - 下一代JavaScript工具链
+description: Vue 作者尤雨溪宣布创立了 VoidZero 公司，该公司致力于为 JavaScript 生态系统构建开源、高性能和统一的开发工具链。
+slug: announcing-voidzero-inc
+tags: 编程工具
+date: 2024-10-01
+---
+
+> Vue 作者尤雨溪宣布创立了 VoidZero 公司，该公司致力于为 JavaScript 生态系统构建开源、高性能和统一的开发工具链。该公司已获得由 Accel 领投的460万美元种子轮融资。
+
+以下是尤雨溪发布的原文翻译：
+
+15年前，当我开始用 JavaScript 构建应用时，它主要还是一种浏览器脚本语言。如今，它已发展成为世界上使用最广泛的语言，支持从网页和移动应用到游戏开发甚至物联网的各种场景。
+
+多年来，许多优秀的工具应运而生，以应对日益增长的 JavaScript 应用规模和复杂性。然而，生态系统一直是分散的：每个应用都依赖于众多第三方依赖，将它们配置在一起仍然是开发周期中最棘手的任务之一。
+
+作为一个被广泛使用的前端框架的作者，我花了大量精力研究 JavaScript 工具栈的每一层，组装了数百个依赖项，并在其上设计了复杂的抽象。目标始终是为最终用户提供一个连贯的、开箱即用的开发体验。这些努力最终导致了 2020 年 Vite 的诞生。
+
+四年后的今天，Vite 已经成为最受欢迎的 Web 开发构建工具之一，每周下载量超过 1500 万次，拥有庞大的生态系统。除了成为使用 React 和 Vue 构建单页应用的首选外，Vite 还为 Remix、Nuxt、Astro、SvelteKit、SolidStart、Qwik、Redwood 等元框架提供支持。它显然已经成为下一代 Web 框架的共享基础设施层。
+
+![vite-downloads](/assets/059/vite-downloads.webp)
+
+社区对 Vite 的信任让我深入思考了它的未来。虽然 Vite 大大改善了高层开发者体验，但在内部，它仍然依赖于各种依赖项，并采用抽象和变通方法来消除不一致性。从性能角度来看，它仍然受到不同工具之间重复解析和序列化成本的瓶颈，而且由于功能限制和可定制性有限，它无法充分利用 esbuild 等原生工具。
+
+我们开始设计一个新的打包工具 Rolldown，以专门解决 Vite 的需求。但当我深入研究打包工具底层时，我意识到 Vite 面临的挑战其实反映了 JavaScript 生态系统的普遍问题：碎片化、不兼容和低效。要从根本上改变这一点，需要一个统一的工具链。
+
+想象一下这样一个工具链:
+
+- **统一**：对所有任务（解析、转换、检查、格式化、打包、压缩、测试）使用相同的 AST、解析器和模块互操作，消除不一致性并减少重复解析成本。
+- **高性能**：用编译到本机的语言编写，从头开始设计以追求速度，最大程度的并行化和低开销的JS插件支持。性能预算解锁了更多雄心勃勃的功能，不仅改善开发者体验，还能改善最终用户体验。
+- **可组合**：工具链的每个组件都可以独立使用，为高级定制提供构建块。
+- **运行时无关**：不绑定于任何特定的 JavaScript 运行时 - 在所有环境中提供相同的开发者体验。
+
+这样的工具链不仅会增强 Vite，还会推动整个 JavaScript 生态系统的重大改进。这是一个雄心勃勃的愿景，实现它需要一个全职的专门团队——这在我过去项目的独立可持续模式下是不可能的。这就是成立 VoidZero 的原因。
+
+我很高兴地宣布，我们已经筹集了 460 万美元的种子轮融资来追求这一愿景。我们的种子轮由 Accel 领投，Amplify Partners、Preston-Werner Ventures、BGZ、Eric Simons(StackBlitz)、Paul Copplestone(Supabase)、David Cramer(Sentry)、Matt Biilmann & Christian Bach(Netlify)、Dafeng Guo(Strikingly)、Sebastien Chopin(NuxtLabs)、Johannes Schickling(Prisma) 和 Zeno Rocha(Resend) 跟投。
+
+## 目前的进展
+
+在过去的一年里，我们组建了一个在 JavaScript 工具方面拥有深厚专业知识的团队，包括广泛采用的开源项目如 Vite、Vitest、Oxc 的创建者和核心贡献者，以及 Rspack 的前核心贡献者。
+
+我们一直在努力开发我们设想的工具链的基础元素。除了对 Vite 的持续改进外，我们还提供了：
+
+- 最快和最符合规范的 JavaScript 解析器(oxc-parser)，它比 SWC 快 3 倍
+- 最快的 Node.js 兼容解析器(oxc-resolver)，它比 enhanced-resolve 快 28 倍
+- 最快的 TypeScript/JSX转换器(oxc-transform)，它比 SWC 快4倍
+- 最快的检查工具(oxlint)，它比 ESLint 快 50-100 倍
+- 功能最完整的 Web 应用测试运行器(Vitest)
+- 最快的打包工具(Rolldown)，它基于Oxc构建，比 esbuild 和所有其他 Rust 打包工具都快（目前处于 alpha 阶段）
+
+虽然还处于早期阶段，但我们的开源项目已经被一些世界领先的工程团队使用，包括 OpenAI（ChatGPT网页客户端）、Google、Apple、Microsoft、Visa、Shopify、Cloudflare、Atlassian、Reddit、HuggingFace、Linear 等等。
+
+## 下一步计划
+
+我们未来几个月的主要目标是稳定 Rolldown，并使其成为 Vite 在开发和生产中的统一打包工具。我们已经取得了很大进展，目标是在今年晚些时候发布由 Rolldown 驱动的 Vite 的 alpha 版本。
+
+2025 年，我们将继续完成 Oxc 计划的其他功能（压缩、格式化），并逐步将整个 Vite 生态系统迁移到由 Rolldown 和 Oxc 驱动。我们将与生态系统合作伙伴和利益相关者密切合作，确保最终用户顺利过渡。
+
+我们开源的所有内容都将保持开源。在我们的开源项目之上，我们将提供一个端到端的 JavaScript 工具解决方案，专门设计用于满足企业环境的规模和安全需求。
+
+## 联系我们!
+
+在 [X](https://x.com/voidzerodev) 上关注我们以了解最新进展。如果你对这些工具有大规模需求，[请联系我们](https://forms.gle/WQgjyzYJpwurpxWKA)！如果你有兴趣为我们的项目做出贡献或在其基础上构建，请加入我们的 Discord 服务器([Vite](https://discord.com/invite/aYVNktYeEB)、[Vitest](https://discord.com/invite/2zYZNngd7y)、[Oxc](https://discord.com/invite/9uXCAwqQZW)、[Rolldown](https://discord.com/invite/vsZxvsfgC5))。最后,别忘了本周收看 [ViteConf](https://viteconf.org/)，我们将在那里分享更多关于我们的进展和未来计划的细节。
+
+## FAQs
+
+- **这些开源项目与 VoidZero 的关系是什么?**
+
+Vite 和 Vitest 的团队治理模式保持不变。两个核心团队都包括来自多个不同组织（VoidZero、StackBlitz、NuxtLabs、Astro）雇佣的成员。VoidZero 公司雇佣/赞助 Vite 和 Vitest 的多个核心贡献者。
+
+VoidZero 公司拥有 Oxc 和 Rolldown 的版权，资助其开发，并控制其方向。
+
+- **Vue呢?**
+
+VoidZero 作为一项业务与 Vue 完全分开。Vue 将继续作为一个独立项目，但将获得 VoidZero 开发的新工具的一流支持。
+
+- **为什么选择 Oxc 而不是 SWC?**
+
+我们的许多团队成员过去都对 SWC 做出了重要贡献。除了原始性能优势外，Oxc 在基本设计上与 SWC 有一些根本性的不同，使其成为我们正在构建的端到端工具链的更好基础。我们将在未来的博客文章中分享更多技术见解。敬请关注!
+
+- **为什么选择 Rolldown 而不是 esbuild / Rollup?**
+
+我们需要一个极其快速、适合应用打包、并且与 Vite 的插件生态系统完全兼容的打包工具。这在 Rolldown 文档中有详细讨论。在 Oxc 之上构建 Rolldown 还解锁了在打包阶段并行执行更多 AST 相关任务的能力，例如用 `isolatedDeclarations: true` 发出和打包 dts。
+
+- **为什么这次会与之前创建统一JS工具链的尝试不同?**
+
+统一工具链最大的挑战是从零到一的问题：它需要获得关键质量以实现指数级采用，以证明持续开发的合理性，但在实际实现愿景之前很难跨越鸿沟。VoidZero 没有这个问题，因为 Vite 已经是 JavaScript 生态系统中增长最快的工具链。
+
+_原文完结_
+
+---
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://x.com/weijunext)
+- **Twitter(En)**: [@wayne_dev](https://x.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

@@ -77,6 +77,12 @@ const MDXComponents: MDXComponentsProps = {
     />
   ),
   img: (props) => <img className="rounded border-4 border-main" {...props} />,
+  ResponsiveImage: (props) => (
+    <img
+      className="rounded border-4 border-main w-full xs:w-full sm:w-1/2 lg:w-1/3"
+      {...props}
+    />
+  ),
   strong: (props) => <strong className="font-bold" {...props} />,
   table: (props) => (
     <div className="my-6 w-full overflow-x-auto">

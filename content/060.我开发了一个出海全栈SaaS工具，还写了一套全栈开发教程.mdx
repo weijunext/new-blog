@@ -1,0 +1,162 @@
+---
+title: 我开发了一个出海全栈SaaS工具，还写了一套全栈开发教程
+description: 我开发了一个出海全栈SaaS工具，并基于这个产品写了一套全栈开发教程，教程讲解Chrome插件和Next.js端的全栈开发，教你最佳的出海技术栈组合，帮助你半个月内成为全栈出海工程师。
+slug: learn-plasmo-chrome-extension-and-nextjs-full-stack
+tags: Chrome插件,NextJS实战
+date: 2024-10-05
+pin: pin
+---
+
+![menu](/assets/060/menu.webp)
+
+大家好，我是程普，即刻App、微信公众号[「BigYe程普」](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)，推特[「weijunext」](https://x.com/weijunext)。
+
+前段时间，我发布了第一个出海产品 [PH Copilot](https://phcopilo.ai/)，是一个基于 Plasmo 开发的 Chrome 插件和 Next.js 开发的落地页与服务端的产品。
+
+现在我把这个产品的完整实现写成系统性教程，内容包含 PH Copilot 的完整实现，讲解了 Chrome 插件开发和 Next.js 全栈开发的知识，教你最适合独立开发者的出海技术栈组合，帮助你半个月内成为全栈出海工程师。
+
+教程地址：https://xiaobot.net/p/ship-ph-copilot?refer=30e2865d-a056-4752-a4d7-b5ce6716c71e
+
+专栏配套源码，购买教程即额外获得一份 Chrome 插件源码和一份 Next.js SaaS 全栈源码。
+
+## 技术栈组合
+
+教程和源码包含的主要技术知识：
+
+- **Plasmo** 开发 Chrome 插件
+- **Next.js** 全栈开发 Web 端与服务端
+- **AI** 对话功能开发
+- **Firebase** 授权和数据库应用（免费）
+- **Paddle** 支付功能集成
+
+## 我想说说这套源码和教程的价值
+
+当时开发插件的目的之一就是想写出海全栈产品开发教程，所以在写教程的时候，我对每一个功能进行 code review 和代码优化，然后编写开发教程，整个过程花费了3周。
+
+教程从实践角度出发，从0开始构建项目、搭建Chrome插件模板、开发功能模块，每一个步骤都单独讲解，可以帮助你渐进式学习。
+
+源码包含 Chrome 插件端和 Next.js 端两份代码，其中 Next.js 端包含落地页和服务端功能，所有核心功能做了模块化设计，你不仅可以获得源码，还能潜移默化学会专业的代码设计方式。
+
+## FAQs
+
+1. 代码和教程遇到不懂的怎么办？
+
+微信提供全程答疑服务，教到你学会。
+
+2. 需要学习多久？
+
+如果你每天业余时间都可以用来学习，跟着教程的步骤，你可以在2周内学会全栈出海产品的开发。
+
+3. 购买后多久可以获得源码？
+
+为了防止恶意购买并退款，会在购买后48小时左右获得源码访问权限。
+
+4. 我要如何在购买前判断这套教程对我是否有用？
+
+从文章开头的目录思维导图你可以了解到教程包含的技术栈和知识点；我还整理了代码结构，你可以透过代码结构知道源码模块化设计的程度有多高：
+
+```md
+// 插件端代码结构（仅展示src部分）
+
+ph-copilot-dev-guide
+├─ src
+│  ├─ background
+│  │  ├─ firebase
+│  │  │  ├─ authService.ts
+│  │  │  ├─ config.ts
+│  │  │  ├─ index.ts
+│  │  │  ├─ tokenManager.ts
+│  │  │  └─ userService.ts
+│  │  ├─ aiResponseHandler.ts
+│  │  ├─ index.ts
+│  │  ├─ messageHandler.ts
+│  │  ├─ sendMessageToSource.ts
+│  │  ├─ storageManager.ts
+│  │  └─ updateChecker.ts
+│  ├─ components
+│  │  ├─ LanguageSwitcher
+│  │  │  ├─ LanguageContext.tsx
+│  │  │  ├─ index.tsx
+│  │  │  ├─ translations.ts
+│  │  │  └─ useTranslation.ts
+│  │  └─ ui
+│  │     ├─ avatar.tsx
+│  │     ├─ button.tsx
+│  │     ├─ card.tsx
+│  │     ├─ popover.tsx
+│  │     ├─ select.tsx
+│  │     ├─ toggle.tsx
+│  │     └─ tooltip.tsx
+│  ├─ contents
+│  │  ├─ components
+│  │  │  ├─ ContentCommentGenerator.tsx
+│  │  │  ├─ ContentOverviewGenerator.tsx
+│  │  │  └─ CopilotTools.tsx
+│  │  ├─ hooks
+│  │  │  ├─ useDOMObserver.ts
+│  │  │  └─ useUrlChangeListener.ts
+│  │  ├─ styles
+│  │  │  └─ content.css
+│  │  ├─ utils
+│  │  │  └─ constants.ts
+│  │  └─ index.tsx
+│  ├─ lib
+│  │  ├─ constant.ts
+│  │  ├─ prefixByEnv.ts
+│  │  ├─ useProductDetails.ts
+│  │  └─ utils.ts
+│  ├─ popup
+│  │  ├─ components
+│  │  ├─ hooks
+│  │  ├─ styles
+│  │  ├─ utils
+│  │  └─ index.tsx
+│  ├─ sidepanel
+│  │  ├─ components
+│  │  │  ├─ CommentCard.tsx
+│  │  │  ├─ Header.tsx
+│  │  │  ├─ OverviewCard.tsx
+│  │  │  └─ UserInfoCard.tsx
+│  │  ├─ hooks
+│  │  ├─ styles
+│  │  ├─ utils
+│  │  └─ index.tsx
+│  ├─ store
+│  │  ├─ firebaseAuthStorage.ts
+│  │  ├─ useCommentLength.ts
+│  │  ├─ useLanguageStorage.ts
+│  │  └─ useUserData.ts
+│  ├─ types
+│  │  ├─ product.ts
+│  │  └─ user.ts
+│  └─ style.css
+
+```
+
+## 学习地址
+
+点击链接或微信扫码即可购买：
+
+教程地址：https://xiaobot.net/p/ship-ph-copilot?refer=30e2865d-a056-4752-a4d7-b5ce6716c71e
+
+<ResponsiveImage src="/assets/060/introduction.webp" alt="Chrome插件全栈开发实战" />
+
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://x.com/weijunext)
+- **Twitter(En)**: [@wayne_dev](https://x.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

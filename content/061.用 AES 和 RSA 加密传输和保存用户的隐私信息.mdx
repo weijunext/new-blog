@@ -1,0 +1,322 @@
+---
+title: 用 AES 和 RSA 加密传输和保存用户的隐私信息
+description: 本文讲解了如何使用 AES 和 RSA 加密方法安全地传输和存储用户隐私信息。通过场景介绍和提供示例讲解 AES 和 RSA 加密方法的应用，以及二者结合实现双向加密通信方案。
+slug: aes-rsa-encryption-privacy-data
+tags: Chrome插件,NextJS实战
+date: 2024-10-08
+---
+
+在我的[全栈教程](https://xiaobot.net/p/ship-ph-copilot)里，我分享了加密传输和保存用户 AI SDK key 的方案。这些方案属于全栈开发者必备知识，而且适用范围比较广，所以我决定提炼出来写成博客，希望能为更多开发者带来启发。
+
+## 加密方法的分类和常见的加密方法
+
+刚接触加密策略的时候，你可能会很懵，因为常见的加密方法太多了。我们可以把常见的加密方法分为三大类：散列算法、对称加密和非对称加密。
+
+其中：
+
+- 散列算法
+    - 特点：相同输入始终产生相同输出；从散列值（密文）无法推导出原始数据
+    - 常见方法：有 MD5、SHA-256 等
+    - 应用场景：经常用于数据完整性验证、密码存储等场景
+- 对称加密
+    - 特点：使用单一密钥——加密和解密使用相同的密钥；加密效率高
+    - 常见方法：AES、DES 等
+    - 应用场景：通信加密、数据库加密等场景
+- 非对称加密
+    - 特点：使用公钥和私钥一对密钥，公钥用于加密，私钥用于解密；存储和传输开销大
+    - 常见方法：RSA、DSA 等
+    - 应用场景：数字签名、密钥交换等常见
+
+在密文不需要逆向回原始数据的场景下，使用散列算法是最好的，例如保存用户的账号密码的场景，我们可以用 MD5 加密传输并保存，当用户登录的时候，只要比较当前传输的 MD5 值和数据库保存的 MD5 值，二者相等即登录成功。因为散列算法的方式无法逆向，所以即使一个人拥有完整的代码权限、服务器权限、数据库权限，依然无法获得用户的密码。
+
+而对于更多需要使用原始的场景，则是对称加密和非对称加密的主战场，其中又以 AES 和 RSA 加密方法出镜率最高。本文就以 AES 和 RSA 展开介绍如何加密传输和保存用户的隐私信息。
+
+## 对称加密 - aes
+
+对称加密使用相同的密钥进行加密和解密，所以只要客户端与服务端定义一个相同的密钥即可互相传输密文，各自解密并使用。举个例子：
+
+```js
+// 引入 CryptoJS 库
+import CryptoJS from 'crypto-js';
+
+// 加密
+function encrypt(text, secretKey) {
+  return CryptoJS.AES.encrypt(text, secretKey).toString();
+}
+
+// 解密
+function decrypt(ciphertext, secretKey) {
+  const bytes = CryptoJS.AES.decrypt(ciphertext, secretKey);
+  return bytes.toString(CryptoJS.enc.Utf8);
+}
+
+// 使用示例
+const secretKey = 'mySecretKey123';
+const plainText = 'Hello, AES!'; // 原始数据
+
+const encrypt = encrypt(plainText, secretKey);
+console.log('加密后：', encrypted);
+
+const decrypt = decrypt(encrypted, secretKey);
+console.log('解密后：', decrypted);
+```
+
+使用 AES 加密方法，服务端与客户端传输均使用 AES 加密后的密文。我们可以在客户端与服务端都创建这样一个文件，在调用加密方法 `encrypt` 的时候，传入原始数据和密钥，即可加密；在调用解密方法 `decrypt` 的时候，传入密文和密钥，即可获得原始数据。
+
+但这种方式存在一个风险，如果密钥使用硬编码，很容易被破解，这样加密效果就会大打折扣。当然我们可以通过放在环境变量配置、经常更换密钥的方式来提升安全度。
+
+那么有没有一种即使客户端保存的密钥被泄漏，依然可以保证数据安全的方式？有，这种方式就是非对称加密。
+
+## 非对称加密 - rsa
+
+RSA（非对称加密）使用一对密钥：公钥和私钥。公钥可以公开分享，存放在客户端，用于数据传输前加密；私钥必须保密，存放在服务端，用于数据解密。这种方式解决了对称加密中密钥分发的问题。
+
+`crypto-js` 库不支持 RSA 加密，我们可以选择使用 `node-forge` 或者 `jsencrypt` 进行 RSA 加密。
+
+在使用 RSA 加密方法前，还需要先生成一对公钥和密钥。你可以打开控制台，在任意文件夹下执行下面两条命令：
+
+```bash
+# 生成私钥
+openssl genrsa -out private_key.pem 2048
+
+# 从私钥中提取公钥
+openssl rsa -in private_key.pem -pubout -out public_key.pem
+```
+
+然后就会在这个文件夹下看到 `private_key.pem` 和 `public_key.pem` 两个文件，分别是私钥和公钥。
+
+我们可以把公钥直接放在客户端；也可以把公钥和私钥一起存放在服务端，客户端需要公钥的时候向服务端请求获取公钥。
+
+RSA 加密与私钥、公钥的的用法示例如下：
+
+客户端加密数据：
+
+```js
+import { JSEncrypt } from 'jsencrypt';
+
+// 公钥
+const publicKey = `
+-----BEGIN PUBLIC KEY-----
+MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQC7/Uu3...
+-----END PUBLIC KEY-----`;
+
+// 加密函数
+function encrypt(text, pubKey) {
+  const encryptor = new JSEncrypt();
+  encryptor.setPublicKey(pubKey);
+  return encryptor.encrypt(text);
+}
+
+// 使用示例
+const plainText = 'Hello, RSA!';
+const encrypted = encrypt(plainText, publicKey);
+console.log('加密后：', encrypted);
+```
+
+客户端加密数据时候，调用 `encrypt` 方法，传入原始数据和公钥即可完成加密。
+
+服务端解密数据：
+
+```js 
+import { JSEncrypt } from 'jsencrypt';
+
+// 私钥(实际应用中应该只存在于服务器)
+const privateKey = `
+-----BEGIN PRIVATE KEY-----
+MIICdwIBADANBgkqhkiG9w0BAQEFAASCAmEwggJdAgEA...
+-----END PRIVATE KEY-----`;
+
+// 解密函数
+function decrypt(ciphertext, privKey) {
+  const decryptor = new JSEncrypt();
+  decryptor.setPrivateKey(privKey);
+  return decryptor.decrypt(ciphertext);
+}
+
+// 使用示例
+const decrypted = decrypt(encrypted, privateKey);
+console.log('解密后：', decrypted);
+```
+
+客户端加密数据时候，调用 `decrypt` 方法，传入密文和私钥即可完成解密。
+
+举个实际场景，例如我们要保存用户的 AI SDK key。服务端收到 RSA 密文后，直接把密文存入数据库，当需要调用第三方 AI 接口的时候，再进行解密使用原始 key。
+
+用非对称加密可以很安全地解决客户端向服务端传输数据和服务端使用数据的问题，但因为公钥加密过的信息只能用私钥解密，这就会造成另一个问题——客户端关闭再打开，从服务端获取到密文却无法直接解密，用户就无法知道保存过的数据是什么了。
+
+仍然用保存用户 AI SDK key 的场景，问题描述就是：用户在设置页面想要查看保存的 key 原始数据时，靠客户端的公钥是做不到的。
+
+解决这个问题也不难，思路有两个：
+
+1. 客户端在保存前把 key 原始数据缓存在本地
+2. 客户端发请求向服务端获取 key
+
+第一种方法仍然有数据泄漏的风险，我们一般不采用。第二种方法需要考虑既能从服务端加密传输到客户端，又能在客户端解密的需求，这就是我们下一个要解决的问题了。
+
+## 服务端与客户端双向加密传输
+
+上一节我们用 RSA 实现了客户端向服务端加密传输的功能，现在我们考虑一下，如何设计才能做出一个安全且方便的服务端向客户端加密传输的功能：
+
+- 客户端向服务端发送请求
+- 服务端加密数据返回客户端
+- 客户端解密数据，获得原始数据
+
+这里依然有一个加密与解密的功能，如果仍然用非对称加密，等于要把私钥放在客户端才行，那就没有意义了；所以这里应该用对称加密。而使用对称加密，我们就要保证密钥的安全。一阵推导之后，可以得出这样的方案：
+
+- 客户端用随机数生成 AES 密钥，定义为 `aes_key`
+- 客户端用 RSA 公钥加密 `aes_key`，定义为 `encry_aes_key`
+- 客户端把 `encry_aes_key` 和密文发给服务端
+- 服务端使用 RSA 私钥解密 `encry_aes_key`，得到 `aes_key`
+- 服务端使用 RSA 私钥解密密文，得到原始数据，再用 `aes_key` 加密，然后把用 `aes_key` 加密的密文返回给客户端
+- 客户端使用定义的 `aes_key` 对返回的密文进行解密
+
+
+```js
+// cryptoUtils.js
+
+// 此处代码把客户端和服务端所需的方法合并到一个文件，只是为了讲解方便，实际开发需要分别创建
+
+import CryptoJS from 'crypto-js';
+import { JSEncrypt } from 'jsencrypt';
+
+// 生成随机AES密钥
+export function generateAESKey(length = 256) {
+  return CryptoJS.lib.WordArray.random(length / 8).toString();
+}
+
+// RSA加密
+export function rsaEncrypt(text, publicKey) {
+  const encrypt = new JSEncrypt();
+  encrypt.setPublicKey(publicKey);
+  return encrypt.encrypt(text);
+}
+
+// RSA解密
+export function rsaDecrypt(ciphertext, privateKey) {
+  const decrypt = new JSEncrypt();
+  decrypt.setPrivateKey(privateKey);
+  return decrypt.decrypt(ciphertext);
+}
+
+// AES加密
+export function aesEncrypt(text, key) {
+  return CryptoJS.AES.encrypt(text, key).toString();
+}
+
+// AES解密
+export function aesDecrypt(ciphertext, key) {
+  const bytes = CryptoJS.AES.decrypt(ciphertext, key);
+  return bytes.toString(CryptoJS.enc.Utf8);
+}
+
+// 将对象转换为JSON字符串并加密
+export function encryptObject(obj, key) {
+  const jsonString = JSON.stringify(obj);
+  return aesEncrypt(jsonString, key);
+}
+
+// 解密JSON字符串并解析为对象
+export function decryptObject(ciphertext, key) {
+  const jsonString = aesDecrypt(ciphertext, key);
+  return JSON.parse(jsonString);
+}
+
+// Base64编码
+export function base64Encode(str) {
+  return btoa(encodeURIComponent(str).replace(/%([0-9A-F]{2})/g, (match, p1) => {
+    return String.fromCharCode('0x' + p1);
+  }));
+}
+
+// Base64解码
+export function base64Decode(str) {
+  return decodeURIComponent(atob(str).split('').map(function(c) {
+    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+  }).join(''));
+}
+```
+
+客户端使用示例：
+
+```js
+import { generateAESKey, rsaEncrypt, aesEncrypt, aesDecrypt } from './cryptoUtils.js';
+
+function sendEncryptedData() {
+  const aesKey = generateAESKey();
+  const encryptedAesKey = rsaEncrypt(aesKey, publicKey);
+  
+  const data = { message: "Hello, Server!" };
+  const encryptedData = aesEncrypt(JSON.stringify(data), aesKey);
+
+  // 发送 encryptedAesKey 和 encryptedData 到服务器
+  // ...
+
+  // 处理服务器响应，encryptedResponse 为服务端返回的加密数据
+  const decryptedResponse = aesDecrypt(encryptedResponse, aesKey);
+  console.log(JSON.parse(decryptedResponse));
+}
+```
+
+这样每次请求服务端都会生成一次 AES 密钥，而且密钥使用 RSA 加密，这样安全级别是足够的。
+
+服务端使用示例：
+
+```js
+import { rsaDecrypt, aesEncrypt, aesDecrypt } from './cryptoUtils.js';
+
+function handleClientRequest(encryptedAesKey, encryptedData) {
+  const aesKey = rsaDecrypt(encryptedAesKey, privateKey);
+  const decryptedData = aesDecrypt(encryptedData, aesKey);
+  const data = JSON.parse(decryptedData);
+
+  // 处理解密后的数据
+  // ...
+
+  // 准备响应数据
+  const responseData = { result: "Success" };
+  const encryptedResponse = aesEncrypt(JSON.stringify(responseData), aesKey);
+
+  // 返回加密的响应给客户端
+  return encryptedResponse;
+}
+```
+
+现在就完成了客户端和服务端双向加密传输的逻辑了。
+
+## 总结
+
+实际开发中，加密方案可能由更多加密方案组合而成，需要根据业务需求进行设计。文中已经介绍了 AES、RSA、AES+RSA 三种加密策略的风险与安全范围，如果符合你的产品需求，那么可以直接套用以上方案，如果你的产品需要更高级别的安全策略，也希望本文的方案可以为你带来启发。
+
+<Aside>
+广告一下：
+
+本文思路是从我的专栏[「Chrome 插件全栈开发实战」](https://xiaobot.net/p/ship-ph-copilot)提炼而来，专栏内容包括：
+
+- Plasmo 开发 Chrome 插件
+- Next.js 全栈开发 Web 端与服务端
+- AI 对话功能开发
+- Firebase 授权和数据库应用
+- Paddle 支付功能集成
+
+专栏现在已有60位读者，如果其中包含你想学习的知识，欢迎成为下一名读者，你将获得真实的**出海项目开发讲解**和专业的**模块化设计的源码**。
+
+</Aside>
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- **Twitter(中文)**: [@weijunext](https://x.com/weijunext)
+- **Twitter(En)**: [@wayne_dev](https://x.com/wayne_dev)
+- **Github**: [Github](https://github.com/weijunext)
+- **Blog**: [J实验室](https://weijunext.com/)
+- **掘金**: [程普](https://juejin.cn/user/26044008768029)
+- **知乎**: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- **即刻**: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- **微信公众号**: 「BigYe程普」
+- **微信交流群**: [全栈交流群](/make-a-friend)
+

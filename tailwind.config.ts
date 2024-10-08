@@ -85,6 +85,11 @@ const config = {
     },
   },
   plugins: [require("tailwindcss-animate"), nextui()],
+  safelist: [
+    {
+      pattern: /(bg|text|hover:bg)-(gray|red|yellow|green|blue|indigo|purple|pink)-(100|200|700)/,
+    },
+  ],
 } satisfies Config
 
 export default config

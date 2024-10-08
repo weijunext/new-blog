@@ -50,6 +50,12 @@ type Props = {
   };
 };
 
+const colors = ["gray", "red", "yellow", "green", "blue"];
+
+function getRandomColor() {
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
 export async function generateMetadata({ params }: Props) {
   const { slug } = params;
   const { posts }: { posts: BlogPost[] } = await getPosts();
@@ -91,7 +97,7 @@ export default async function PostDetailsPage({ params }: Props) {
     permanentRedirect(`/article/${post.slug}`);
   }
 
-  const { content, title, date } = post;
+  const { content, title, date, tags } = post;
 
   return (
     <div className="flex flex-row w-full pt-0">
@@ -101,6 +107,25 @@ export default async function PostDetailsPage({ params }: Props) {
       <div className="w-full md:w-3/5 px-2 md:px-12">
         <article id={`article`}>
           <h1>{title}</h1>
+          {tags.split(",").length ? (
+            <div className="flex flex-wrap gap-2">
+              {tags.split(",").map((tag) => {
+                const color = getRandomColor();
+                return (
+                  <Link
+                    key={tag}
+                    href={`/tag/${encodeURIComponent(tag.trim())}`}
+                    className={`inline-block px-3 py-1 text-sm font-semibold text-${color}-700 bg-${color}-100 rounded-full hover:bg-${color}-200 transition duration-300 ease-in-out`}
+                  >
+                    {tag.trim()}
+                  </Link>
+                );
+              })}
+            </div>
+          ) : (
+            <></>
+          )}
+
           <Aside icon="🧑‍💻">
             <div>推荐全栈学习资源：</div>
             <li>

@@ -83,7 +83,12 @@ const MDXComponents: MDXComponentsProps = {
       {...props}
     />
   ),
-  strong: (props) => <strong className="font-bold" {...props} />,
+  strong: (props) => (
+    <strong
+      className="font-[900] underline decoration-wavy decoration-slate-300"
+      {...props}
+    />
+  ),
   table: (props) => (
     <div className="my-6 w-full overflow-x-auto">
       <table

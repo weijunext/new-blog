@@ -11,8 +11,13 @@ const HeaderMenu = () => {
         Hi there
       </Link>
       <div className="hidden md:block text-gray-600">|</div>
-      <Link href="/rss.xml" title="RSS" className="link-default">
-        RSS
+      <Link
+        href="https://nextjscn.org/"
+        title="Next.js中文文档"
+        className="link-default"
+        target="_blank"
+      >
+        Next.js中文文档
       </Link>
       <div className="hidden md:block text-gray-600">|</div>
       <Link
@@ -21,7 +26,7 @@ const HeaderMenu = () => {
         className="link-default"
         target="_blank"
       >
-        信息差周刊
+        出海周刊
       </Link>
     </>
   );

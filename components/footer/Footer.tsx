@@ -98,7 +98,7 @@ export default function Footer() {
         <div className="xl:grid xl:grid-cols-3 xl:gap-8">
           <div className="space-y-8 md:pr-8 mt-6">
             <div className="flex items-center justify-start">
-              <h1 className="text-medium font-medium">{siteConfig.name}</h1>
+              <h2 className="text-medium font-medium">{siteConfig.name}</h2>
             </div>
             <span className="text-small text-default-500">
               {siteConfig.description}

@@ -23,17 +23,22 @@ const TOC = () => {
   }, []);
 
   return (
-    <>
-      <ul className="sticky top-16 right-0 mt-6">
+    <nav className="sticky top-16 right-0 mt-6 max-h-[calc(100vh-6rem)] overflow-y-auto pr-4">
+      <h2 className="text-lg font-semibold mb-4">目录</h2>
+      <ul className="space-y-2">
         {headings.map(({ text, id, level }) => (
-          <li key={id} className={`my-2 ${level === "H3" ? "ml-4" : ""}`}>
-            <Link href={`#${id}`} title={text} className="link-hover">
+          <li key={id} className={`${level === "H3" ? "ml-4" : ""}`}>
+            <Link
+              href={`#${id}`}
+              title={text}
+              className="link-hover text-sm hover:text-primary transition-colors duration-200"
+            >
               {text}
             </Link>
           </li>
         ))}
       </ul>
-    </>
+    </nav>
   );
 };
 

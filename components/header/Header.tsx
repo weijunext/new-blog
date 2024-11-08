@@ -1,8 +1,8 @@
 "use client";
+import DocSearch from "@/components/DocSearch";
 import HeaderLinks from "@/components/header/HeaderLinks";
 import HeaderMenu from "@/components/header/HeaderMenu";
 import LogoLink from "@/components/header/LogoLink";
-import SearchBar from "@/components/header/SearchBar";
 import { MenuIcon } from "lucide-react";
 import { useState } from "react";
 import { CgClose } from "react-icons/cg";
@@ -22,7 +22,8 @@ const Header = () => {
         </div>
 
         <div className="hidden md:flex items-center h-12 w-full max-w-fit rounded-full px-2 bg-content1">
-          <SearchBar />
+          {/* <SearchBar /> */}
+          <DocSearch />
           <HeaderLinks />
         </div>
 
@@ -56,8 +57,10 @@ const Header = () => {
                 <div className="flex flex-col items-start gap-4 w-full max-w-fit">
                   <HeaderMenu />
                 </div>
-                <SearchBar />
+                {/* <SearchBar /> */}
+
                 <div className="flex items-center gap-x-5 justify-between">
+                  <DocSearch />
                   <HeaderLinks />
                 </div>
               </div>

@@ -1,0 +1,156 @@
+---
+title: 如何在Next.js博客中集成Algolia DocSearch搜索功能
+description: 详细介绍如何为Next.js博客申请并集成Algolia DocSearch，包括申请步骤、配置过程和完整的代码实现，帮助你快速搭建一个专业的文档搜索系统。
+slug: integrate-algolia-docsearch-nextjs
+tags: NextJS,NextJS实战,React
+date: 2024-11-08
+---
+
+> 最近在做[「Next.js 中文文档」](https://nextjscn.org/docs)的自动化工作和代码升级，比较忙，所以这篇文章就长话短说，把博客/文档类网站集成搜索功能的方法介绍一下。
+
+差不多半年前，我发布了一个开源的[博客模板](https://github.com/weijunext/weekly-boilerplate)，那时候我尝试使用 FlexSearch 来实现搜索。虽然开发的时候觉得很牛，但是真正去测试才发现这里有不少问题，主要是中文分词和拉丁语系不同，要想使用 FlexSearch 做出很好用的搜索效果，必须自己集成分词库，实践下来开发成本不低，那时候我只在模板里放了一个简化版的搜索，使用体验并不好。
+
+因为搜索功能使用频率太低了，所以我后来就没怎么研究了。直到和阿伟一起开发 Next.js 中文文档的时候，阿伟给文档站集成了 Algolia，我才重新准备修改博客模板的搜索功能，现在终于花时间修改好了。
+
+Algolia 有付费和免费两种，免费的是 DocSearch，只要网站的公开可访问的，都可以免费使用。
+
+这篇文章的目的就是介绍一下集成 DocSearch 的方法。
+
+## 申请 DocSearch
+
+1. 填写表单申请：https://docsearch.algolia.com/apply/
+2. 等待 Algolia 团队的邮件，等待了一天，我就收到了这样的一封邮件：
+  ![email](/assets/063/email.webp)
+
+  收到邮件表示 Algolia 已经索引好了我们的网站，现在就可以集成了。注意圈起来的参数，后面开发的搜索框组件需要使用这三个核心参数。
+
+## 代码集成步骤
+安装依赖
+
+```bash
+pnpm i @docsearch/css @docsearch/react
+```
+
+创建 config/docSearchConfig.ts 定义配置：
+
+```ts
+/**
+ * 免费申请 algolia 文档搜索功能：https://docsearch.algolia.com/apply/
+ */
+interface DocSearchSiteConfig {
+  docSearch: {
+    appId: string;
+    indexName: string;
+    apiKey: string;
+  };
+}
+export const docSearchConfig: DocSearchSiteConfig = {
+  docSearch: {
+    appId: "填写邮件收到的参数",
+    indexName: "填写邮件收到的参数",
+    apiKey: "填写邮件收到的参数",
+  },
+}
+```
+
+创建 DocSearch 搜索框组件，`components/DocSearch/index.ts`核心代码如下：
+
+```
+"use client";
+
+import { docSearchConfig } from "@/config/docSearch";
+import "@docsearch/css";
+import { DocSearchModal, useDocSearchKeyboardEvents } from "@docsearch/react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { IoIosSearch } from "react-icons/io";
+import "./docSearch.css";
+
+export default function CustomDocSearch() {
+  const { appId, indexName, apiKey } = docSearchConfig.docSearch;
+  const [isOpen, setIsOpen] = useState(false);
+  const [isMac, setIsMac] = useState(false);
+  const searchButtonRef = useRef<HTMLButtonElement>(null);
+
+  const onOpen = useCallback(() => {
+    setIsOpen(true);
+  }, [setIsOpen]);
+
+  const onClose = useCallback(() => {
+    setIsOpen(false);
+  }, [setIsOpen]);
+
+  useDocSearchKeyboardEvents({
+    isOpen,
+    onOpen,
+    onClose,
+    searchButtonRef,
+  });
+
+  // 添加检测操作系统的效果
+  useEffect(() => {
+    setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0);
+  }, []);
+
+  return (
+    <>
+      <button className="docSearch-btn" data-variant="large" onClick={onOpen}>
+        搜索文档<kbd>{isMac ? "⌘K" : "Ctrl+K"}</kbd>
+      </button>
+      <button className="docSearch-btn" data-variant="medium" onClick={onOpen}>
+        搜索<kbd>{isMac ? "⌘K" : "Ctrl+K"}</kbd>
+      </button>
+      <button
+        className="docSearch-btn mr-2 hover:bg-accent border border-gray-300"
+        data-variant="small"
+        onClick={onOpen}
+      >
+        <IoIosSearch />
+      </button>
+      {isOpen &&
+        createPortal(
+          <DocSearchModal
+            initialScrollY={window.scrollY}
+            appId={appId}
+            apiKey={apiKey}
+            indexName={indexName}
+            onClose={onClose}
+            placeholder="搜索文档"
+            hitComponent={({ hit, children }) => (
+              <Link href={hit.url}>{children}</Link>
+            )}
+          />,
+          document.body
+        )}
+    </>
+  );
+}
+```
+
+`docSearch.css` 是自定义的搜索样式。
+
+再把搜索框组件 `CustomDocSearch` 引入 Header 就可以使用了。
+
+## 总结
+
+DocSearch 的搜索和集成都非常方便，现在我的[博客模板](https://github.com/weijunext/weekly-boilerplate)、[博客](https://weijunext.com/)、[信息差周刊](https://gapis.money/)都已经集成好了，这三个项目都是开源的，你可以直接复制我的组件代码。
+
+## 关于我
+
+我是一名全栈工程师，Next.js 开源手艺人，AI降临派。
+
+今年致力于 Next.js 和 Node.js 领域的开源项目开发和知识分享。
+
+欢迎在以下平台关注我：
+
+- Twitter(中文): [@weijunext](https://x.com/weijunext)
+- Twitter(En): [@wayne_dev](https://x.com/wayne_dev)
+- Github: [Github](https://github.com/weijunext)
+- Blog: [J实验室](https://weijunext.com/)
+- 掘金: [程普](https://juejin.cn/user/26044008768029)
+- 知乎: [程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- 即刻: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- 微信公众号: 「BigYe程普」
+- 微信交流群: [全栈交流群](/make-a-friend)
+

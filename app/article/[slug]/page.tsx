@@ -134,6 +134,7 @@ export default async function PostDetailsPage({ params }: Props) {
                 title="Next.js 中文文档"
                 target="_blank"
                 className="link-underline"
+                prefetch={false}
               >
                 Next.js 中文文档
               </Link>
@@ -146,6 +147,7 @@ export default async function PostDetailsPage({ params }: Props) {
                 target="_blank"
                 className="link-underline"
                 rel="noopener norefferer nofollow"
+                prefetch={false}
               >
                 《Chrome插件全栈开发》
               </Link>
@@ -168,6 +170,7 @@ export default async function PostDetailsPage({ params }: Props) {
               target="_blank"
               rel="noopener noreferrer nofollow"
               className="link link-hover"
+              prefetch={false}
             >
               <span className="hidden lg:flex items-center">版权声明</span>
               <span className="flex lg:hidden">
@@ -207,6 +210,7 @@ export default async function PostDetailsPage({ params }: Props) {
               target="_blank"
               rel="noopener noreferrer nofollow"
               className="link-underline"
+              prefetch={false}
             >
               Twitter/X
             </Link>

@@ -1,4 +1,5 @@
 import { Aside } from "@/components/mdx/Aside";
+import { AsideContact } from "@/components/mdx/AsideContact";
 import { Callout } from "@/components/mdx/Callout";
 import { MdxCard } from "@/components/mdx/MdxCard";
 import React, { ReactNode } from "react";
@@ -111,6 +112,7 @@ const MDXComponents: MDXComponentsProps = {
     />
   ),
   Aside,
+  AsideContact,
   Callout,
   Card: MdxCard,
 };

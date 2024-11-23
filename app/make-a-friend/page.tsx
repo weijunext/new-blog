@@ -39,9 +39,14 @@ export default async function Page() {
 }
 
 const content = `
-我创建了一个微信群，如果你是一名前端工程师或者全栈工程师，同时你对创造自己的产品感兴趣，那么欢迎你加入这个群。
+我创建了两个群：
 
-**海阔凭鱼跃，天高任鸟飞**，欢迎每一位不设限的开发者加入👇
+- 全栈出海交流群
+- Next.js 技术交流群（[介绍](https://mp.weixin.qq.com/s/ctq5sYAxfmW9eIBD9IBjbQ)）
+
+如果你有一个独立开发产品的梦想，欢迎加入全栈出海交流群👇
+
+如果你还在学习 Next.js，欢迎加入 Next.js 技术交流群👇
 
 <img src="/wechat.webp" width="30%" />
 
@@ -53,39 +58,41 @@ const content = `
 
 ## 🛠 技能
 
-- **前端**：React、Vue、Plasmo 和 Next.js
-- **后端**：Node.js、Koa、Express 和 Midway.js
-- **数据库**：Mysql、Prisma 和 Redis
-- **运维**：PM2 和 Nginx
+- 前端：React、Vue、Plasmo 和 Next.js
+- 后端：Node.js、Koa、Express 和 Midway.js
+- 数据库：Mysql、Prisma 和 Redis
+- 运维：PM2 和 Nginx
 
 ## 💡 我的产品
 
-- [**Next.js 中文文档**](https://nextjscn.org/)
-- [**信息差——独立开发者出海周刊**](https://gapis.money)
-- [**PH Copilot(Product Hunt 助手)**](https://PHCopilot.AI/)
-- **HelloAI**（已关闭）
+- [Next.js 中文文档](https://nextjscn.org/)
+- [信息差——独立开发者出海周刊](https://gapis.money)
+- [PH Copilot(Product Hunt 助手)](https://PHCopilot.AI/)
+- HelloAI（已关闭）
 
 ## 🧑‍💻 我的开源与教程
 
-- [**Next.js 生态圈技术分享**](https://github.com/weijunext/nextjs-learn-demos)
-- [**Chrome插件全栈开发教程(付费)**](https://xiaobot.net/p/ship-ph-copilot)
-- [**SmartExcel - SaaS 模板**](https://smartexcel.cc/)
-- [**Landing Page Boilerplate**](https://landingpage.weijunext.com)
-- [**Weekly Boilerplate**](https://weekly.weijunext.com)
+- [Next.js 生态圈技术分享](https://github.com/weijunext/nextjs-learn-demos)
+- [Chrome插件全栈开发教程(付费)](https://xiaobot.net/p/ship-ph-copilot)
+- [SmartExcel - SaaS 模板](https://smartexcel.cc/)
+- [Landing Page Boilerplate](https://landingpage.weijunext.com)
+- [Weekly Boilerplate](https://weekly.weijunext.com)
 
 ## 📫 联系我
 
-- **邮箱：**[weijunext@gmail.com](mailto:weijunext@gmail.com)
-- **推特**：[@weijunext](https://twitter.com/weijunext)
-- **推特(英文)**：[@wayne_dev](https://twitter.com/wayne_dev)
-- **博客：**[J实验室](https://weijunext.com/)
-- **掘金：**[点击访问>>程普](https://juejin.cn/user/26044008768029)
-- **知乎：**[点击访问>>程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
-- **即刻：**[点击访问>>BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
-- **微博：**[点击访问>>BigYe程普](https://weibo.com/u/5890176177)
-- **微信公众号：**「BigYe程普」
+- 邮箱：[weijunext@gmail.com](mailto:weijunext@gmail.com)
+- 推特：[@weijunext](https://twitter.com/weijunext)
+- 推特(英文)：[@wayne_dev](https://twitter.com/wayne_dev)
+- 博客：[J实验室](https://weijunext.com/)
+- 掘金：[点击访问>>程普](https://juejin.cn/user/26044008768029)
+- 知乎：[点击访问>>程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)
+- 即刻：[点击访问>>BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- 微博：[点击访问>>BigYe程普](https://weibo.com/u/5890176177)
+- 微信公众号：「BigYe程普」
 
 <img src="/gzh.png" alt="程普公众号" width="50%" />
 欢迎联系我，接受合作与交流！
+
+![chuhai](/assets/chuhai.webp)
 
 `;

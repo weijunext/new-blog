@@ -1,49 +1,62 @@
 ---
-title: 如何在Next.js博客中集成Algolia DocSearch搜索功能
+title: 5分钟搞定！给Next.js项目集成Algolia DocSearch搜索功能
 description: 详细介绍如何为Next.js博客申请并集成Algolia DocSearch，包括申请步骤、配置过程和完整的代码实现，帮助你快速搭建一个专业的文档搜索系统。
 slug: integrate-algolia-docsearch-nextjs
 tags: NextJS,NextJS实战,React
 date: 2024-11-08
 ---
 
-> 最近在做[「Next.js 中文文档」](https://nextjscn.org/docs)的自动化工作和代码升级，比较忙，所以这篇文章就长话短说，把博客/文档类网站集成搜索功能的方法介绍一下。
+## 前言
 
-差不多半年前，我发布了一个开源的[博客模板](https://github.com/weijunext/weekly-boilerplate)，那时候我尝试使用 FlexSearch 来实现搜索。虽然开发的时候觉得很牛，但是真正去测试才发现这里有不少问题，主要是中文分词和拉丁语系不同，要想使用 FlexSearch 做出很好用的搜索效果，必须自己集成分词库，实践下来开发成本不低，那时候我只在模板里放了一个简化版的搜索，使用体验并不好。
+半年前，我开源了一个 [Next.js 博客模板](https://github.com/weijunext/weekly-boilerplate)。当时为了实现站内搜索，我选择了 FlexSearch 方案。FlexSearch 是一个高性能的全文搜索库，在英文环境下表现优异。然而在实际测试中，我发现中文搜索存在严重问题。要解决这个问题，就需要引入 `nodejieba` 这样的中文分词库。但 `nodejieba` 依赖 C++ 编译环境，而我的网站都是部署在 serverless 环境，无法直接支持，所以那时候我只在模板里放了一个简化版的搜索，使用体验并不好。
 
-因为搜索功能使用频率太低了，所以我后来就没怎么研究了。直到和阿伟一起开发 Next.js 中文文档的时候，阿伟给文档站集成了 Algolia，我才重新准备修改博客模板的搜索功能，现在终于花**5分钟**上线了新的搜索功能。
+因为搜索功能使用频率太低了，所以我后来就没怎么研究了。直到和阿伟一起开发 [Next.js 中文文档](https://nextjscn.org/docs) 的时候，阿伟给文档站集成了 Algolia DocSearch，我才重新准备修改博客模板的搜索功能。让我惊讶的是，集成 DocSearch 太方便了，我花了**5分钟**就上线新的搜索功能。
 
-Algolia 有付费和免费两种，免费的是 DocSearch，只要网站的公开可访问的，都可以免费使用。
+<AsideContact />
 
-这篇文章的目的就是介绍一下集成 DocSearch 的方法。
+## Algolia DocSearch 简介
 
-## 申请 DocSearch
+Algolia 提供了付费的企业版和免费的 DocSearch 两种方案。DocSearch 专门针对技术文档、博客等内容网站，只要你的网站是公开可访问的，就能免费集成。
 
-1. 填写表单申请：https://docsearch.algolia.com/apply/
-2. 等待 Algolia 团队的邮件，等待了一天，我就收到了这样的一封邮件：
-  ![email](/assets/063/email.webp)
+DocSearch 凭借专业的搜索能力和丝滑的用户体验，已经成为技术文档的主流搜索方案。连 React 和 Vue 这样的官方网站都在使用。
 
-  收到邮件表示 Algolia 已经索引好了我们的网站，现在就可以集成了。注意圈起来的参数，后面开发的搜索框组件需要使用这三个核心参数。
+这篇教程将手把手带你在 Next.js 项目中集成 DocSearch，只需跟随以下步骤，你也能很快为网站添加专业级的站内搜索。
 
-## 代码集成步骤
+### 1、申请 DocSearch
+
+1.  填写表单申请：https://docsearch.algolia.com/apply/
+2.  等待 Algolia 团队的邮件，等待了一天，我就收到了这样的一封邮件：
+    
+    ![email.webp](https://p0-xtjj-private.juejin.cn/tos-cn-i-73owjymdk6/a309d70747634cc79ceea59ee85cf37b~tplv-73owjymdk6-jj-mark-v1:0:0:0:0:5o6Y6YeR5oqA5pyv56S-5Yy6IEAg56iL5pmu:q75.awebp?policy=eyJ2bSI6MywidWlkIjoiMjYwNDQwMDg3NjgwMjkifQ%3D%3D&rk3s=e9ecf3d6&x-orig-authkey=f32326d3454f2ac7e96d3d06cdbb035152127018&x-orig-expires=1732418317&x-orig-sign=PPLGjDQJVbC8RAJsx%2BpEUVXtpiI%3D)
+
+收到邮件就表示 Algolia 已经索引好了我们的网站，现在就可以集成了。注意圈起来的参数，后面开发的搜索框组件需要使用这三个核心参数。
+
+### 2、代码集成
+
 安装依赖
 
 ```bash
-pnpm i @docsearch/css @docsearch/react
+# 使用 npm
+npm install @docsearch/css @docsearch/react
+
+# 使用 yarn
+yarn add @docsearch/css @docsearch/react
+
+# 使用 pnpm
+pnpm add @docsearch/css @docsearch/react
 ```
 
-创建 config/docSearchConfig.ts 定义配置：
+创建配置文件 `config/docSearchConfig.ts`：
 
 ```ts
-/**
- * 免费申请 algolia 文档搜索功能：https://docsearch.algolia.com/apply/
- */
-interface DocSearchSiteConfig {
+interface DocSearchConfig {
   docSearch: {
     appId: string;
     indexName: string;
     apiKey: string;
-  };
+  }
 }
+
 export const docSearchConfig: DocSearchSiteConfig = {
   docSearch: {
     appId: "填写邮件收到的参数",
@@ -53,9 +66,9 @@ export const docSearchConfig: DocSearchSiteConfig = {
 }
 ```
 
-创建 DocSearch 搜索框组件，`components/DocSearch/index.ts`核心代码如下：
+创建 DocSearch 搜索框组件 `components/DocSearch/index.ts`，实现一个功能完备的搜索组件：
 
-```
+```ts
 "use client";
 
 import { docSearchConfig } from "@/config/docSearch";
@@ -128,13 +141,15 @@ export default function CustomDocSearch() {
 }
 ```
 
-`docSearch.css` 是自定义的搜索样式。
+`docSearch.css` 是自定义的搜索样式，这部分不重要，不贴代码了，你可以到文末的开源地址查看。
 
 再把搜索框组件 `CustomDocSearch` 引入 Header 就可以使用了。
 
 ## 总结
 
 DocSearch 的搜索和集成都非常方便，现在我的[博客模板](https://github.com/weijunext/weekly-boilerplate)、[博客](https://weijunext.com/)、[信息差周刊](https://gapis.money/)都已经集成好了，这三个项目都是开源的，你可以直接复制我的组件代码。
+
+也可以到[「Next.js中文文档」](https://nextjscn.org/)体验，文档站一共有 300 多个文档，搜索效率依然非常高，所以你完全可以放心使用。
 
 ## 关于我
 

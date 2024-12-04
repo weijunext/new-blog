@@ -73,7 +73,7 @@ const content = `
 ## 🧑‍💻 我的开源与教程
 
 - [Next.js 生态圈技术分享](https://github.com/weijunext/nextjs-learn-demos)
-- [Chrome插件全栈开发教程(付费)](https://xiaobot.net/p/ship-ph-copilot)
+- [Chrome插件全栈开发教程(付费)](https://ship.weijunext.com/)
 - [SmartExcel - SaaS 模板](https://smartexcel.cc/)
 - [Landing Page Boilerplate](https://landingpage.weijunext.com)
 - [Weekly Boilerplate](https://weekly.weijunext.com)

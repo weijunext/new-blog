@@ -23,7 +23,7 @@ const footerNavigation = {
     { name: "Next.js Practice", href: "https://nextjs.weijunext.com/" },
     {
       name: "Chrome插件全栈教程",
-      href: "https://xiaobot.net/p/ship-ph-copilot/",
+      href: "https://ship.weijunext.com/",
       rel: "noopener noreferrer nofollow",
     },
   ],

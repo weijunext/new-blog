@@ -76,7 +76,7 @@ export default function Footer() {
           {items.map((item) => (
             <li key={item.name}>
               <Link
-                className="text-default-500"
+                className="text-default-500 text-sm"
                 href={item.href}
                 title={item.name}
                 prefetch={false}

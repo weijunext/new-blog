@@ -28,6 +28,7 @@ export default async function PostList({
           <Link
             href={`/article/${post.slug}`}
             title={post.title}
+            prefetch={false}
             className="link-default w-full transition-colors duration-500 ease-in-out flex justify-start items-center"
           >
             {post.pin ? "🔥" : <></>}

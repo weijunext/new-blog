@@ -33,6 +33,7 @@ export default async function Page() {
                     href={i.link}
                     target="_blank"
                     rel="noopener noreferrer nofollow"
+                    prefetch={false}
                   >
                     <Button
                       color="primary"

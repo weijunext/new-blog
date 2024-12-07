@@ -114,6 +114,7 @@ export default async function PostDetailsPage({ params }: Props) {
                 return (
                   <Link
                     key={tag}
+                    prefetch={false}
                     href={`/tag/${encodeURIComponent(tag.trim())}`}
                     className={`inline-block px-3 py-1 text-sm font-semibold text-${color}-700 bg-${color}-100 rounded-full hover:bg-${color}-200 transition duration-300 ease-in-out`}
                   >
@@ -184,6 +185,7 @@ export default async function PostDetailsPage({ params }: Props) {
                 href={prevPost.slug}
                 className="link-underline"
                 title="上一篇"
+                prefetch={false}
               >
                 上一篇
               </Link>
@@ -195,13 +197,19 @@ export default async function PostDetailsPage({ params }: Props) {
                 href={nextPost.slug}
                 className="link-underline"
                 title="下一篇"
+                prefetch={false}
               >
                 下一篇
               </Link>
             ) : (
               <></>
             )}
-            <Link href="/" className="link-underline" title="去首页">
+            <Link
+              href="/"
+              className="link-underline"
+              title="去首页"
+              prefetch={false}
+            >
               去首页
             </Link>
             <Link

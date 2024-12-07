@@ -31,6 +31,7 @@ const TOC = () => {
             <Link
               href={`#${id}`}
               title={text}
+              prefetch={false}
               className="link-hover text-sm hover:text-primary transition-colors duration-200"
             >
               {text}

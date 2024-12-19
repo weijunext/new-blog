@@ -82,7 +82,6 @@ const content = `
 
 - 邮箱：[weijunext@gmail.com](mailto:weijunext@gmail.com)
 - 推特：[@weijunext](https://twitter.com/weijunext)
-- 推特(英文)：[@wayne_dev](https://twitter.com/wayne_dev)
 - 博客：[J实验室](https://weijunext.com/)
 - 掘金：[点击访问>>程普](https://juejin.cn/user/26044008768029)
 - 知乎：[点击访问>>程普](https://www.zhihu.com/people/mo-mo-mo-89-12-11)

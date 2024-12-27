@@ -42,6 +42,10 @@ const footerNavigation = {
       href: "https://PHCopilot.AI/?utm_source=weijunext",
     },
     {
+      name: "OG Image Generator",
+      href: "https://ogimage.click/?utm_source=weijunext",
+    },
+    {
       name: "独立开发者出海周刊",
       href: "https://gapis.money/?utm_source=weijunext",
     },

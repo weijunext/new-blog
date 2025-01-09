@@ -17,13 +17,13 @@ export default function DeveloperCard() {
               @weijunext
             </p>
             <div className="flex gap-2 pb-1 pt-2">
-              <Chip variant="flat">👨‍💻前端</Chip>
-              <Chip variant="flat">🛠️全栈</Chip>
-              <Chip variant="flat">✨AI</Chip>
+              <Chip variant="flat">👨‍💻独立开发</Chip>
               <Chip variant="flat">⛵️出海</Chip>
+              <Chip variant="flat">🛠️Next.js</Chip>
+              <Chip variant="flat">✨AI</Chip>
             </div>
             <p className="py-2 text-small text-foreground">
-              Next.js开源手艺人｜掘金签约作者｜折腾才有未来
+              🧑‍💻独立开发｜⛵️出海｜Next.js手艺人
             </p>
             <div className="w-full text-center mt-4 flex justify-evenly">
               <FollowButton
@@ -35,8 +35,8 @@ export default function DeveloperCard() {
                 href="https://github.com/weijunext/"
               ></FollowButton>
               <FollowButton
-                name="掘金"
-                href="https://juejin.cn/user/26044008768029"
+                name="产品"
+                href="https://bento.me/weijunext"
               ></FollowButton>
             </div>
           </div>

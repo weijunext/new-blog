@@ -16,6 +16,7 @@ export default function FollowButton({
     <Button
       as={Link}
       target={target || "_blank"}
+      rel="noopener noreferrer nofollow"
       className="group relative h-9 overflow-hidden bg-transparent text-small font-normal"
       color="default"
       endContent={

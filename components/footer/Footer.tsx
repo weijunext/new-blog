@@ -38,12 +38,16 @@ const footerNavigation = {
   ],
   indieHacker: [
     {
-      name: "PH Copilot",
-      href: "https://PHCopilot.AI/?utm_source=weijunext",
-    },
-    {
       name: "OG Image Generator",
       href: "https://ogimage.click/?utm_source=weijunext",
+    },
+    {
+      name: "Next Idea",
+      href: "https://nextidea.dev/?utm_source=weijunext",
+    },
+    {
+      name: "PH Copilot",
+      href: "https://PHCopilot.AI/?utm_source=weijunext",
     },
     {
       name: "独立开发者出海周刊",

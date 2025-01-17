@@ -66,6 +66,9 @@ const content = `
 ## 💡 我的产品
 
 - [Next.js 中文文档](https://nextjscn.org/)
+- [Next Idea](https://nextidea.dev/)
+- [Next Idea NewTab](https://newtab.nextidea.dev/)
+- [OG Image Generator](https://ogimage.click/)
 - [信息差——独立开发者出海周刊](https://gapis.money)
 - [PH Copilot(Product Hunt 助手)](https://PHCopilot.AI/)
 - HelloAI（已关闭）

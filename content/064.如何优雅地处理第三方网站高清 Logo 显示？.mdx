@@ -1,0 +1,161 @@
+---
+title: 如何优雅地处理第三方网站高清 Logo 显示？
+description: 学习如何优雅地处理第三方网站高清Logo显示问题。本文详细介绍了一个健壮的React组件实现方案，包括多重备选图标源、加载状态占位符、超时处理机制和优雅的降级显示。通过实际案例展示如何解决favicon格式不一、图标加载失败等常见问题。
+slug: handle-third-party-website-logo-react
+tags: NextJS,组件
+date: 2025-01-17
+---
+
+今天正式发布了我的第一个新标签页插件：[Next Idea NewTab](https://newtab.nextidea.dev/)
+
+![Next Idea NewTab](/assets/064/og.webp)
+
+这是一个为开发者、独立开发者量身打造的新标签页插件，主要功能分3个模块：
+
+- 精选的优质开源项目，分析项目潜在的商机，帮助开发者找到Idea
+- 实时更新的 GitHub Trending，不错过当下热门项目
+- 开发者工具箱，高效便捷
+
+有了这个插件，每次打开浏览器都能查找新 idea，一下子缩短了信息获取路径。
+
+> 插件左侧的优质开源项目来源于我的开源项目导航站：[Next Idea](https://nextidea.dev/)
+
+这篇博客的主要目的不是介绍插件，是要讲一个插件里出现的一个 bug。
+
+## bug描述
+
+在插件的右侧，是一大批工具的展示，每个工具都需要显示 logo，问题恰恰出现在 logo 的展示上。
+
+logo 最初的展示方案是，手动从第三方网站里找到高清 logo 地址，如果没有高清 logo，则使用 https://favicon.im 的服务获取logo。这个方案在我测试的时候没发现问题，上线后有用户反馈页面上出现 bug：
+
+![bug](/assets/064/bug-2.webp)
+
+我第一反应就知道和国内网络连接 favicon.im 的稳定性有关。
+
+解决这个 bug 的思路也简单：
+
+- 找到高清的 Logo
+- 做好回退方案
+
+## 表演一下AI编程
+
+启动 Claude，发送 “我的产品里要展示不同网站的高清 logo，并且要做好回退方案，给我写一个 React 组件”。
+
+Claude 就开发分析如何找到高清 logo：
+- 加载 `https://${domain}/apple-touch-icon.png`
+- 利用 Google、DuckDuckGo 等第三方服务抓取
+
+并且提供了一份组件代码：
+
+```tsx
+import React, { useState } from 'react';
+
+const WebsiteLogo = ({ domain, size = 32, className = "" }) => {
+  const [imgSrc, setImgSrc] = useState(`https://${domain}/apple-touch-icon.png`);
+  const [fallbackIndex, setFallbackIndex] = useState(0);
+  
+  const fallbackSources = [
+    `https://${domain}/apple-touch-icon.png`,
+    `https://${domain}/apple-touch-icon-precomposed.png`,
+    `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    `https://${domain}/favicon.ico`,
+  ];
+
+  const handleError = () => {
+    const nextIndex = fallbackIndex + 1;
+    if (nextIndex < fallbackSources.length) {
+      setFallbackIndex(nextIndex);
+      setImgSrc(fallbackSources[nextIndex]);
+    }
+  };
+
+  return (
+    <img 
+      src={imgSrc}
+      alt={`${domain} logo`}
+      width={size}
+      height={size}
+      onError={handleError}
+      className={`inline-block ${className}`}
+      style={{ objectFit: 'contain' }}
+    />
+  );
+};
+
+export default WebsiteLogo;
+```
+
+这个组件已经实现了自动处理错误和降级方案，并且可以自定义大小和样式，看起来已经可行了。
+
+但是咱们可是程序员，哪能被 AI 糊弄，继续鞭打，要求在加载状态添加占位符、logo 展示要有过渡效果、提供兜底的回退方案，并且每个回退方案只给1秒加载时间，超出即当作失败，去找下一个回退方案。
+
+这样一份非常健壮的第三方网站 logo 展示的组件就实现好了，代码我放在开源项目 [nextjs-15-starter](https://github.com/weijunext/nextjs-15-starter/blob/main/components/WebsiteLogo.tsx) 了，仓库的[演示网站](https://starter.weijunext.com/)也能体验效果。
+
+核心处理方法在这里：
+
+```tsx
+  useEffect(() => {
+    let timeoutId
+
+    if (isLoading) {
+      timeoutId = setTimeout(() => {
+        handleError()
+      }, timeout)
+    }
+
+    return () => {
+      if (timeoutId) {
+        clearTimeout(timeoutId)
+      }
+    }
+  }, [imgSrc, isLoading])
+
+  const handleError = () => {
+    const nextIndex = fallbackIndex + 1
+    if (nextIndex < fallbackSources.length) {
+      setFallbackIndex(nextIndex)
+      setImgSrc(fallbackSources[nextIndex])
+      setIsLoading(true)
+    } else {
+      setHasError(true)
+      setIsLoading(false)
+    }
+  }
+```
+
+现在组件就完成了如下任务：
+- 多重备选图标源，确保最大程度显示成功
+- 加载状态显示占位符
+- 超时处理机制
+- 优雅的降级显示（使用域名首字母）
+- 可自定义大小和样式
+
+轻松解决不同网站的favicon格式不一、图标无法加载、加载超时等等痛点。
+
+<Aside>
+
+最后，欢迎开发者们使用我的新标签页插件  
+插件官网👉 https://newtab.nextidea.dev/  
+安装地址👉 https://chromewebstore.google.com/detail/next-idea-newtab/gneedaehihepidbpdenhmlmgpdaiaepo
+</Aside>
+
+
+## 关于我
+
+🧑‍💻独立开发｜⛵️出海｜Next.js手艺人
+
+🖥️做过开源：http://github.com/weijunext  
+⌨️写过博客：https://weijunext.com  
+🛠️今年想做独立产品和课程  
+📘Nextjs中文文档：http://nextjscn.org  
+📙全栈开发教程：https://ship.weijunext.com  
+
+欢迎在以下平台关注我：
+
+- Twitter: [@weijunext](https://x.com/weijunext)
+- Github: [Github](https://github.com/weijunext)
+- Blog: [J实验室](https://weijunext.com/)
+- 即刻: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- 微信交流群: [全栈交流群](/make-a-friend)
+

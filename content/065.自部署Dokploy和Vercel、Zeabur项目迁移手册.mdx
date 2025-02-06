@@ -1,0 +1,324 @@
+---
+title: 自部署Dokploy和Vercel、Zeabur项目迁移手册
+description: 详细介绍如何从Vercel和Zeabur迁移到自部署的Dokploy平台，包括VPS配置、Dokploy安装、GitHub Actions自动化部署等完整流程，帮助你搭建更稳定、更经济的部署环境。
+slug: self-hosted-dokploy
+tags: 运维,Docker
+date: 2025-02-06
+---
+
+昨天突然发现一个部署在 Zeabur 的网站打不开了，这个网站最近的访问量持续上涨，无法访问意味着会失去潜在的新用户，而我在 Zeabur 每个月付费 10+ 刀。支付着高额账单却没有稳定的服务，于是我决定把部署在 Zeabur 的服务迁移走。
+
+正好我最近计划购买服务器自部署一些开源服务，趁这个机会把 Dokploy 给部署起来，既可以替换掉 Zeabur，也可以把 Vercel 上面一部分占用资源大的项目迁移过来，还能作为以后自部署开源服务的稳定性试验，一举多得。
+
+> 需要说明的是，我在 Zeabur 遇到的问题可能只是个例。事实上，Zeabur 是一个优秀的部署平台，我有其他项目在上面运行了很长时间都非常稳定。本文重点是分享自部署 Dokploy 的经验，而不是对任何平台的评价。
+
+## 什么是 Dokploy
+
+Dokploy 是一个专注于自托管的 PaaS (Platform as a Service) 解决方案，是 Vercel/Netlify/Zeabur 的开源替代品，区别是 Dokploy 专注于 Docker 容器部署。
+
+![dokploy](/assets/065/1.webp)
+
+如果你熟悉 Docker，会很容易上手本文介绍的工作流，如果不熟悉，可能就会和我一样花半天时间才搞定一切。
+
+## 自部署 Dokploy
+
+### 购买和配置 VPS
+
+要自部署 Dokploy，首先得购买服务器。对比几个云厂商的价格后，我选择了 [hostinger](https://hostinger.com.hk?REFERRALCODE=weijunext) 的 vps。
+
+进入 hostinger 网站后，先把语言切换到中文再购买，因为我对比了几个地区的价格，发现人民币付款是最便宜的。
+
+![hostinger](/assets/065/2.webp)
+
+选购2核8G的vps，两年只要1037元，换算下来，每个月不到6刀，还要啥自行车。
+
+付款后会进入vps设置流程，根据页面提示操作就好了，全部完成后控制台会显示vps是启动状态。
+
+接着添加防火墙规则，hostinger 默认没有防火墙规则，意味着所有端口都是开放的，这样风险比较高。我们需要创建防火墙规则，并开放 22、80、443、3000 端口访问。
+
+![hostinger](/assets/065/3.webp)
+
+![hostinger](/assets/065/4.webp)
+
+
+### 安装 Dokploy
+
+打开命令行，使用 ssh 方式登录vps，执行 Dokploy 安装命令：
+
+```
+curl -sSL https://dokploy.com/install.sh | sh
+```
+
+等待一会儿，安装成功后会有提示：
+
+![hostinger](/assets/065/5.webp)
+
+现在打开截图里的地址就可以访问 Dokploy 的管理后台。
+
+注册登录后，进入如图的管理后台，先给管理后台设置自定义域名
+
+![hostinger](/assets/065/6.webp)
+
+再到域名解析平台（我的网站在 CloudFlare 解析，所以截图是 CloudFlare 的界面）添加这个自定义域名的解析记录，选择 A 类型解析，IP 地址填写服务器地址。
+
+![hostinger](/assets/065/7.webp)
+
+解析成功后，就可以使用自定义域名访问 Dokploy 管理后台了。
+
+### 绑定 git
+
+接着绑定你的 git 账号，这一步还是跟着页面提示操作，步骤和其他平台差不多，绑定完成后如图👇
+
+![hostinger](/assets/065/8.webp)
+
+### 验证部署流程
+
+在 Vercel 上面，我们可以直接选择项目进行构建，不过在 Dokploy 需要先创建 Project，再创建 Service，然后才能部署项目
+
+![hostinger](/assets/065/9.webp)
+
+同一个 Project 下面的 Service 可以设置公共环境变量
+
+![hostinger](/assets/065/10.webp)
+
+创建 Service，并进入 Service 管理界面
+
+![hostinger](/assets/065/11.webp)
+
+![hostinger](/assets/065/12.webp)
+
+在 Provider 依次选择账号、仓库、分支，然后点击 Save，再开始 Deploy
+
+![hostinger](/assets/065/13.webp)
+
+每个 Service 都有通用设置(General)、环境变量(Enviroment)、日志(Logs)、构建(Deployments)等等设置项，这些功能也跟 Vercel 等平台类似。
+
+需要提醒的是，域名重定向的功能不在 Domain 里面，而是在 Advanced - Redirects。
+
+![hostinger](/assets/065/14.webp)
+
+通常我们选择「带 `www` 前缀的域名指向不带 `www` 的域名地址」，也就是下拉框的第二个选项
+
+![hostinger](/assets/065/15.webp)
+
+等 Service 构建完成了，我们到 Domains 里面添加域名，可以手动输入自定义域名，也可以点击右边的骰子生成域名
+
+<Aside>
+- 如果使用点击骰子生成的域名，需要把 HTTPS 关闭，Certificate 不要选择。  
+- 使用自定义域名，建议把 HTTPS 打开，并选择 `Let's Encrypt`，然后为自定义域名添加 DNS 解析。
+</Aside>
+
+![hostinger](/assets/065/16.webp)
+
+生成域名后，点击能打开页面就验证部署成功了。
+
+因为我是在 CloudFlare 解析域名，所以同时给 SSL 选择了“完全”的策略
+
+![hostinger](/assets/065/17.webp)
+
+## 搭配 GitHub Actions 使用
+
+现在让我们忘掉上面的「验证部署流程」，因为我们要用一个更稳健的方式来构建项目。
+
+起因是，不少 Dokploy 尝鲜用户发现在服务器负载高的时候，会出现部署失败的情况，有开发者提出解决方案：搭配 GitHub Actions，部署前先通过 GitHub Actions 自动构建 Docker 镜像，Dokploy 只需要拉取构建好的镜像，不需要执行构建程序，这样就不会出现构建失败的问题。
+
+### 创建 GitHub Token
+
+要使用 GitHub Actions，需要先到 GitHub 设置里创建 Personal access token，[点此直达](https://github.com/settings/tokens/new)，创建一个新的 Token
+
+![GitHub Token](/assets/065/18.webp)
+
+创建完成后，会看到 token，要保存下来，等下要用。
+
+如果忘了保存，可以重新回到[这里](https://github.com/settings/tokens)，点击蓝色字进去重新生成(Regenerate token)
+
+![GitHub Token](/assets/065/19.webp)
+
+![Regenerate token](/assets/065/20.webp)
+
+### Dokploy 配置 Docker Register
+
+回到 Dokploy 管理后台，进入 Registry 模块，添加 Registry
+
+![Register](/assets/065/21.webp)
+
+Registry Name 随便填，Username 填你的 GitHub ID，Password 填上面生成的 token，Reigstry URL 填 `https://ghcr.io`
+
+![Register](/assets/065/22.webp)
+
+### Dokploy 修改部署方式
+
+再打开 Service 的管理页面，进入 Advanced，我们要修改 Cluster Settings
+
+![Service](/assets/065/23.webp)
+
+registry 选择刚才创建的那一个，然后 Save
+
+![Cluster Settings](/assets/065/24.webp)
+
+接着点开 General，Provider 选择 Docker，Docker Image 输入 `ghcr.io/[GitHub ID]/[Repo Name]:[Branch]`，然后 Save
+
+![Docker Image](/assets/065/25.webp)
+
+修改成功后，会看到 Service 状态是置灰的。我们点开 Deployments，可以看到一个 Webhook URL，这个 URL 下一步要用。
+
+![Webhook URL](/assets/065/26.webp)
+
+### 代码添加工作流和 Dockerfile 配置信息
+
+在根目录创建文件 `.github/workflow/docker-image.yml`，这是一个 GitHub Actions 工作流配置文件，用来自动化构建和发布 Docker 镜像：
+
+```yml
+name: Create and publish a Docker image
+
+on:
+  push:
+    branches: ['main']
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+      - name: Build and push Docker image
+        id: push
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Trigger dokploy redeploy
+        run: |
+          curl -X GET https://xxxxxxxxxxxxxxxxxxxxx
+```
+
+注意看最后一行，https地址需要换成上一步看到的 Webhook URL。
+
+现在还需要在根目录创建 `Dockerfile` 文件来定义如何构建这个镜像：
+
+```Dockerfile
+FROM node:20-alpine AS deps
+WORKDIR /app
+
+COPY package.json pnpm-lock.yaml* ./
+RUN corepack enable && corepack prepare pnpm@8.15.4 --activate && pnpm i --frozen-lockfile
+
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN corepack enable && corepack prepare pnpm@8.15.4 --activate && pnpm build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN addgroup --system --gid 1001 nodejs
+RUN adduser --system --uid 1001 nextjs
+
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE 3000
+
+ENV PORT 3000
+ENV HOSTNAME "0.0.0.0"
+
+CMD ["node", "server.js"]
+```
+
+我使用的是 `pnpm`，所以这里配置了 `pnpm` 命令，并且要保证 `pnpm` 版本和 `pnpm-lock.yaml` 匹配，我直接设置为和本地一样的版本号，也就是 `pnpm@8.15.4`，你使用的时候最好换成自己的版本号，否则容易构建失败。
+
+在 Docerkfile 配置里，我们使用了 `standalone` 输出模式，这个模式可以减少最终镜像的大小，并优化部署性能。对应的，我们还需要在 `next.config.mjs` 里面添加 `output: standalone` 这个配置：
+
+```mjs
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: "standalone",
+  // ... 其他配置
+}
+```
+
+出于规范，还可以在根目录添加 `.dockerignore` 文件：
+
+```dockerignore
+.git
+.github
+node_modules
+.next
+```
+
+### 验证 Docker 部署流程
+
+现在提交代码，打开 GitHub 仓库的 Actions 模块，会看到工作流正在执行，等待几分钟执行完成后，到 Dokploy 管理后台查看构建记录，会看到最新镜像已经拉取到了并且更新完成了
+
+![Deployments](/assets/065/27.webp)
+
+到这里就算完成整个流程了，以后代码更新就会自动触发构建流程，自动更新。
+
+按照这样的步骤，可以快速把 Vercel 等平台的项目迁移过来了，我已经把「[Next.js 中文文档](https://nextjscn.org/)」迁移到自部署的 Dokploy，欢迎大家一起体验服务的稳定性🤣。
+
+最后提醒一下，建议在 Web Server 模块打开每日清除 Docker 镜像的功能，这样系统会自动清除废弃的镜像，节省服务器空间。
+
+![clean docker](/assets/065/28.webp)
+
+## 参考资源
+
+以上内容参考了 Dokploy 官方文档：
+- [Install](https://docs.dokploy.com/docs/core/installation)
+- [Domains](https://docs.dokploy.com/docs/core/domains/cloudflare)
+- [Advanced](https://docs.dokploy.com/docs/core/applications/advanced)
+- [GHCR](https://docs.dokploy.com/docs/core/registry/ghcr)
+
+还有 javahu 老哥的工作流：
+- [workflow-demo](https://github.com/javayhu/dokploy-demo/commit/bdc5249e93ac2301e6d25b6808698ea29b7e8509)
+
+## 关于我
+
+🧑‍💻独立开发｜⛵️出海｜Next.js手艺人
+
+🖥️做过开源：http://github.com/weijunext  
+⌨️写过博客：https://weijunext.com  
+🛠️今年想做独立产品和课程  
+📘Nextjs中文文档：http://nextjscn.org  
+📙全栈开发教程：https://ship.weijunext.com  
+
+欢迎在以下平台关注我：
+
+- Twitter: [@weijunext](https://x.com/weijunext)
+- Github: [Github](https://github.com/weijunext)
+- Blog: [J实验室](https://weijunext.com/)
+- 即刻: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- 微信交流群: [全栈交流群](/make-a-friend)
+

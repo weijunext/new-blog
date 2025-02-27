@@ -1,4 +1,15 @@
 FROM node:20-alpine AS deps
+WORKDIR /app
+
+# Install dependencies
+COPY package.json pnpm-lock.yaml* ./
+RUN corepack enable && corepack prepare pnpm@8.15.4 --activate && pnpm i --frozen-lockfile
+
+# Rebuild the source code only when needed
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
 # 声明构建参数
 ARG NEXT_PUBLIC_SITE_URL
@@ -43,18 +54,6 @@ ENV NEXT_PUBLIC_INPUT_POSITION=${NEXT_PUBLIC_INPUT_POSITION}
 ENV NEXT_PUBLIC_THEME=${NEXT_PUBLIC_THEME}
 ENV NEXT_PUBLIC_LANG=${NEXT_PUBLIC_LANG}
 ENV NEXT_PUBLIC_REACTIONS_ENABLED=${NEXT_PUBLIC_REACTIONS_ENABLED}
-
-WORKDIR /app
-
-# Install dependencies
-COPY package.json pnpm-lock.yaml* ./
-RUN corepack enable && corepack prepare pnpm@8.15.4 --activate && pnpm i --frozen-lockfile
-
-# Rebuild the source code only when needed
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED 1
 

@@ -324,11 +324,16 @@ node_modules
             ## 其他更多环境变量
 ```
 
-对应的，在 `Dockerfile` 接收这些环境变量：
+对应的，在 `Dockerfile` 的构建阶段接收这些环境变量：
 
 ```Dockerfile
-# 这一行原来就有，必须放在文件最前面
-FROM node:20-alpine AS deps
+## 其他内容不变
+
+# Rebuild the source code only when needed
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
 
 # 声明构建参数
 ARG NEXT_PUBLIC_SITE_URL

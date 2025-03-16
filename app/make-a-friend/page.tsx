@@ -67,7 +67,7 @@ const content = `
 
 - [Next.js 中文文档](https://nextjscn.org/)
 - [Next Idea](https://nextidea.dev/)
-- [Next Idea NewTab](https://newtab.nextidea.dev/)
+- [nTab](https://ntab.dev/)
 - [OG Image Generator](https://ogimage.click/)
 - [信息差——独立开发者出海周刊](https://gapis.money)
 - [PH Copilot(Product Hunt 助手)](https://PHCopilot.AI/)

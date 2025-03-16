@@ -46,8 +46,8 @@ const footerNavigation = {
       href: "https://nextidea.dev/?utm_source=weijunext",
     },
     {
-      name: "Next Idea NewTab",
-      href: "https://newtab.nextidea.dev/?utm_source=weijunext",
+      name: "nTab",
+      href: "https://ntab.dev/?utm_source=weijunext",
     },
     {
       name: "独立开发者出海周刊",

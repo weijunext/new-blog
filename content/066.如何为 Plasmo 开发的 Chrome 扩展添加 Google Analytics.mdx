@@ -1,0 +1,468 @@
+---
+title: 如何为 Plasmo 开发的 Chrome 扩展添加 Google Analytics
+description: 了解如何在 Manifest V3 限制下为 Chrome 扩展添加 Google Analytics 4 跟踪功能。本教程提供从创建 GA4 媒体到实现事件跟踪的完整步骤，包含代码示例和最佳实践。
+slug: plasmo-chrome-extension-google-analytics
+tags: Chrome插件
+date: 2025-03-08
+---
+
+Web 添加 Google Analytics 是非常容易的，引入一个脚本就行，如果你还不会，可以直接用我的 [Next.js 启动模板](https://github.com/weijunext/nextjs-15-starter)。
+
+但是，Chrome 插件要添加 Google Analytics 就不太方便了，因为从 manifest v3 开始，不允许使用外部 js 脚本了，也就是无法通过注入 Google Analytics 提供的脚本来实现。根据最新的规范，Chrome 插件想要添加 Google Analytics，需要由产品端主动发起 post 请求，向 Google Analytics 提交数据。
+
+本文就来介绍一下如何在 Plasmo 开发的 Chrome 插件里添加 Google Analytics 4 (GA4)。
+
+## 为什么在 Chrome 扩展中使用GA？
+
+在添加 Google Analytics 之前，我都是在 Chrome 插件后台看安装数据，其中有一项是「一段时间内的每周用户数」，我一直以为展示的是日活数据，直到我点开这个小问号：
+
+![一段时间内的每周用户数](/assets/066/1.webp)
+
+原来这里还包含了已停用的用户，那么和日活数据会有很大出入。为了能看到相对精准的数据，我决定引入 Google Analytics。
+
+当然，除了想要更精准的数据外，从运营侧考虑还可能有这些原因：
+
+- 了解用户参与度和功能使用情况
+- 跟踪转化路径和用户旅程
+- 基于数据做出功能开发决策
+
+接下来我们进入正题——介绍实现步骤。
+
+## 创建 Google Analytics 媒体
+
+登录 Google Analytics，在右下角 Admin - Create - Property 这里创建一个新的媒体
+
+![Property](/assets/066/2.webp)
+
+创建完成后，进入当前媒体的页面，来到 Admin - Data collecting and modification - Data streams
+
+![Data streams](/assets/066/3.webp)
+
+点击所创建的数据流，会看到这样的界面：
+
+![Data streams](/assets/066/4.webp)
+
+复制 Measurement Id，并且在 Measurement Protocol API secrets 这里创建一个新的 api_secret
+
+## 设置环境变量
+
+把上面复制的 Measurement Id 和 创建的 Measurement Protocol API secrets 加入环境变量
+
+```.env
+PLASMO_PUBLIC_GTAG_ID=G-XXXXXXXXXX  # Measurement Id
+PLASMO_PUBLIC_SECRET_API_KEY=XXXXXXXX  # api_secret
+```
+
+## 核心实现
+
+核心代码只有一个文件，我们先创建一个文件 `lib/googleAnalytics.ts`，一步步加入代码
+
+### 1. 基础设置
+
+```typescript
+import { Storage } from "@plasmohq/storage"
+
+if (!process.env.PLASMO_PUBLIC_GTAG_ID) {
+  throw new Error("PLASMO_PUBLIC_GTAG_ID 环境变量未设置。")
+}
+
+if (!process.env.PLASMO_PUBLIC_SECRET_API_KEY) {
+  throw new Error("PLASMO_PUBLIC_SECRET_API_KEY 环境变量未设置。")
+}
+
+const GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
+const G_TAG_ID = process.env.PLASMO_PUBLIC_GTAG_ID
+const SECRET_API_KEY = process.env.PLASMO_PUBLIC_SECRET_API_KEY
+const SESSION_EXPIRATION_IN_MSEC = 1000 * 60 * 30 // 30分钟
+const storage = new Storage()
+```
+
+代码首先确保所需的环境变量存在。Plasmo 的 `Storage` 模块为客户端ID和会话管理提供持久化存储。
+
+### 2. 客户端ID管理
+
+Google Analytics 需要一个稳定的客户端ID来跟踪跨会话的用户：
+
+```typescript
+async function getClientId(): Promise<string> {
+  let clientId = await storage.get<string>("ga_client_id")
+
+  if (!clientId) {
+    // 生成UUID v4
+    clientId = crypto.randomUUID()
+    await storage.set("ga_client_id", clientId)
+  }
+
+  return clientId
+}
+```
+
+此函数检索现有客户端ID或使用 `crypto.randomUUID()` 创建新ID，它生成UUID v4——非常适合匿名用户识别。
+
+### 3. 会话管理
+
+会话帮助分组用户交互：
+
+```typescript
+async function getSessionId(): Promise<string> {
+  let sessionId = await storage.get<string>("ga_session_id")
+  const sessionTimestamp = await storage.get<number>("ga_session_timestamp") || 0
+
+  // 在以下情况创建新会话：
+  // 1. 没有会话存在
+  // 2. 会话已超过 SESSION_EXPIRATION_IN_MSEC
+  const now = Date.now()
+
+  if (!sessionId || (now - sessionTimestamp > SESSION_EXPIRATION_IN_MSEC)) {
+    sessionId = crypto.randomUUID()
+    await storage.set("ga_session_id", sessionId)
+    await storage.set("ga_session_timestamp", now)
+  }
+
+  return sessionId
+}
+```
+
+这段代码创建或检索会话ID并管理会话超时。
+
+因为 Chrome 插件和 Web 是不一样的，本身没有会话概念，所以我们自定义一个会话和超时时间，如果在超时时间内重复打开插件，就当作是一个会话。
+
+### 4. 用户隐私和退出选项
+
+```typescript
+async function isAnalyticsOptedOut(): Promise<boolean> {
+  return await storage.get<boolean>("analytics_opted_out") || false
+}
+
+export async function optOutOfAnalytics(): Promise<void> {
+  await storage.set("analytics_opted_out", true)
+}
+
+export async function optInToAnalytics(): Promise<void> {
+  await storage.set("analytics_opted_out", false)
+}
+```
+
+根据 Google 给的规范，如果有收集用户数据，最好提供一个允许用户关闭的入口，所以我们需要在这里添加以上 3 个方法来支持这个功能。
+
+### 5. 发送事件
+
+这一步是向 GA 发送事件的核心函数：
+
+```typescript
+export async function sendEvent(event: CollectEventPayload): Promise<void> {
+  // 如果用户选择退出则跳过
+  if (await isAnalyticsOptedOut()) return
+
+  try {
+    const clientId = await getClientId()
+    const sessionId = await getSessionId()
+
+    const url = `${GA_ENDPOINT}?measurement_id=${G_TAG_ID}&api_secret=${SECRET_API_KEY}`
+
+    const payload = {
+      client_id: clientId,
+      session_id: sessionId,  // 如果注释掉，每次打开都会被统计到
+      events: [event],
+      // 需要时包含用户属性
+      user_properties: {
+        extension_version: {
+          value: chrome.runtime.getManifest().version
+        }
+      }
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    })
+
+    if (!response.ok) {
+      console.error("GA4事件跟踪失败:", await response.text())
+    }
+  } catch (error) {
+    console.error("发送分析事件时出错:", error)
+  }
+}
+```
+
+这个函数：
+1. 检查用户是否已选择退出
+2. 获取客户端ID和会话ID
+3. 使用事件数据构建 GA 载荷
+4. 将数据发送到 GA 测量协议端点
+5. 包含请求失败的错误处理
+
+
+### 6. 定义常见事件
+
+我们把常用的事件也定义在这个页面，例如：
+
+```typescript
+export const Events = {
+  PAGE_VIEW: (page_title: string) => ({
+    name: "page_view",
+    params: {
+      page_title,
+      page_location: document.location.href
+    }
+  }),
+
+  BOOKMARK_ADDED: (source: string) => ({
+    name: "bookmark_added",
+    params: {
+      source
+    }
+  }),
+
+  SEARCH: (search_term: string, engine: string) => ({
+    name: "search",
+    params: {
+      search_term,
+      engine
+    }
+  }),
+
+  // 更多事件...
+}
+```
+
+### 7. 完整代码
+
+```ts
+// lib/googleAnalytics.ts
+import { Storage } from "@plasmohq/storage"
+
+if (!process.env.PLASMO_PUBLIC_GTAG_ID) {
+  throw new Error("PLASMO_PUBLIC_GTAG_ID environment variable not set.")
+}
+
+if (!process.env.PLASMO_PUBLIC_SECRET_API_KEY) {
+  throw new Error("PLASMO_PUBLIC_SECRET_API_KEY environment variable not set.")
+}
+
+const GA_ENDPOINT = "https://www.google-analytics.com/mp/collect"
+const G_TAG_ID = process.env.PLASMO_PUBLIC_GTAG_ID
+const SECRET_API_KEY = process.env.PLASMO_PUBLIC_SECRET_API_KEY
+const SESSION_EXPIRATION_IN_MSEC = 5 * 60 * 1000 // 5 minutes
+// const DEFAULT_ENGAGEMENT_TIME_IN_MSEC = 100
+const storage = new Storage()
+
+// https://developers.google.com/analytics/devguides/collection/protocol/ga4/reference/events
+type CollectEventPayload = {
+  name: string
+  params?: Record<string, any>
+}
+
+// Generate or retrieve a unique client ID
+async function getClientId(): Promise<string> {
+  let clientId = await storage.get<string>("ga_client_id")
+
+  if (!clientId) {
+    // Generate a UUID v4
+    clientId = crypto.randomUUID()
+    await storage.set("ga_client_id", clientId)
+  }
+
+  return clientId
+}
+
+// Generate or retrieve session ID
+async function getSessionId(): Promise<string> {
+  let sessionId = await storage.get<string>("ga_session_id")
+  const sessionTimestamp = await storage.get<number>("ga_session_timestamp") || 0
+
+  // Create a new session if:
+  // 1. No session exists
+  // 2. Session is older than SESSION_EXPIRATION_IN_MSEC
+  const now = Date.now()
+
+  if (!sessionId || (now - sessionTimestamp > SESSION_EXPIRATION_IN_MSEC)) {
+    sessionId = crypto.randomUUID()
+    await storage.set("ga_session_id", sessionId)
+    await storage.set("ga_session_timestamp", now)
+  }
+
+  return sessionId
+}
+
+// Check if user has opted out of analytics
+async function isAnalyticsOptedOut(): Promise<boolean> {
+  return await storage.get<boolean>("analytics_opted_out") || false
+}
+
+// Send event to Google Analytics 4
+export async function sendEvent(event: CollectEventPayload): Promise<void> {
+  // Skip if user opted out
+  if (await isAnalyticsOptedOut()) return
+
+  try {
+    const clientId = await getClientId()
+    const sessionId = await getSessionId()
+
+    const url = `${GA_ENDPOINT}?measurement_id=${G_TAG_ID}&api_secret=${SECRET_API_KEY}`
+
+    const payload = {
+      client_id: clientId,
+      // session_id: sessionId,
+      events: [event],
+      // Include user properties if needed
+      user_properties: {
+        extension_version: {
+          value: chrome.runtime.getManifest().version
+        }
+      }
+    }
+
+    const response = await fetch(url, {
+      method: "POST",
+      body: JSON.stringify(payload),
+      headers: {
+        "Content-Type": "application/json"
+      }
+    })
+
+    if (!response.ok) {
+      console.error("GA4 event tracking failed:", await response.text())
+    }
+  } catch (error) {
+    console.error("Error sending analytics event:", error)
+  }
+}
+
+// Common events
+export const Events = {
+  PAGE_VIEW: (page_title: string, page_location: string) => ({
+    name: "page_view",
+    params: {
+      page_title,
+      // engagement_time_msec: DEFAULT_ENGAGEMENT_TIME_IN_MSEC,
+      page_location: document.location.href
+    }
+  }),
+
+  BOOKMARK_ADDED: (source: string) => ({
+    name: "bookmark_added",
+    params: {
+      source
+    }
+  }),
+
+  SEARCH: (search_term: string, engine: string) => ({
+    name: "search",
+    params: {
+      search_term,
+      engine
+    }
+  }),
+
+  TRENDING_FILTER: (language: string, time_range: string) => ({
+    name: "trending_filter",
+    params: {
+      language,
+      time_range
+    }
+  }),
+
+  EXTERNAL_LINK_CLICK: (link_url: string, link_domain: string, link_type: string) => ({
+    name: "external_link_click",
+    params: {
+      link_url,
+      link_domain,
+      link_type
+    }
+  }),
+
+  THEME_CHANGE: (theme: string) => ({
+    name: "theme_change",
+    params: {
+      theme
+    }
+  })
+}
+
+// Add functions for opt-in/out
+export async function optOutOfAnalytics(): Promise<void> {
+  await storage.set("analytics_opted_out", true)
+}
+
+export async function optInToAnalytics(): Promise<void> {
+  await storage.set("analytics_opted_out", false)
+}
+```
+
+## 在插件前端中的使用
+
+以新标签页插件为例，需要在 `tabs/index.tsx` 文件里调用：
+
+```typescript
+import { Events, sendEvent } from "~lib/googleAnalytics"
+
+function NewTab() {
+  useEffect(() => {
+    // 当新标签页打开时跟踪页面浏览
+    sendEvent(Events.PAGE_VIEW("新标签页"))
+  }, [])
+
+  // 组件实现...
+}
+```
+
+如果你的插件是 Popup，用法也是一样。
+
+## 清单权限
+
+为了让 GA 工作，还需要在 manifest 添加权限：
+
+```json
+"host_permissions": [
+  "https://www.google-analytics.com/*"
+],
+"permissions": [
+  "storage"
+]
+```
+
+## 参考资源：
+
+- [使用 Google Analytics（分析）4 ](https://developer.chrome.com/docs/extensions/how-to/integrate/google-analytics-4?hl=zh-cn#toc-tracking-pageviews)
+- [Quickstart with Google Analytics](https://docs.plasmo.com/quickstarts/with-google-analytics)
+
+## 结论
+
+本文介绍了在 Plasmo 开发的 Chrome 插件里如何添加 Google Analytics，并且实现了这些特性：
+
+- 匿名用户识别（客户端ID）
+- 会话管理
+- 事件跟踪
+- 用户隐私（退出选项）
+- 错误处理
+
+本文的实现方式本来要在我的插件 [nTab](https://ntab.dev) 中使用，但最终考虑到客户端还要发送请求，而且国内用户可能无法发送成功，所以暂时取消了。如果你们的插件主要面向海外用户，可以尝试使用起来。
+
+> nTab 是一个为程序员/开发者专门设计的新标签页插件，你可以在这里查找优质的开源项目、GitHub Trending、Hacker News 和其他多个平台的热门信息，还可以自定义常用标签，让工作更高效。未来会陆续增加新功能，欢迎开发者来围观和使用！
+
+![Next Idea NewTab](/assets/066/5.webp)
+
+
+## 关于我
+
+🧑‍💻独立开发｜⛵️出海｜Next.js手艺人
+
+🖥️做过开源：http://github.com/weijunext  
+⌨️写过博客：https://weijunext.com  
+🛠️今年想做独立产品和课程  
+📘Nextjs中文文档：http://nextjscn.org  
+📙全栈开发教程：https://ship.weijunext.com  
+
+欢迎在以下平台关注我：
+
+- Twitter: [@weijunext](https://x.com/weijunext)
+- Github: [Github](https://github.com/weijunext)
+- Blog: [J实验室](https://weijunext.com/)
+- 即刻: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- 微信交流群: [全栈交流群](/make-a-friend)
+

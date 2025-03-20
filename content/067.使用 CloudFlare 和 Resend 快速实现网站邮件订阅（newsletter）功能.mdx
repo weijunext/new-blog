@@ -1,0 +1,328 @@
+---
+title: 使用 CloudFlare 和 Resend 快速实现网站邮件订阅（newsletter）功能
+description: 本教程详细介绍如何利用CloudFlare和Resend API在Next.js项目中实现完整的邮件订阅(Newsletter)功能，包含域名配置、API接入、前端表单和退订流程的全部步骤，10分钟即可完成部署。
+slug: implement-newsletter-with-cloudflare-and-resend
+tags: NextJS,NextJS实战,Resend
+date: 2025-03-20
+---
+
+看多了英文网站，你会发现大多数网站都提供了 newsletter 订阅功能，也就是邮件订阅。因为因为海外用户其实都还习惯查看邮箱，所以如果我们的网站有邮件订阅功能，只要有用户订阅了邮件，我们就可以离用户更近一些。
+
+当我知道利用 CloudFlare 和 Resend 可以低成本开发邮件订阅功能的时候，我就决定给我的自用[Next.js 模板](https://nextforge.dev/)补充一下这个功能。
+
+根据本文的步骤，你可以10分钟完成整个接入流程。不过需要提醒的是，本文教学的是接入的基础步骤，如果你的产品用户量大、安全需求高，你需要在此基础上，结合自己的业务添加额外的防范措施，这一点也会在文末提出一点我的看法。
+
+## 什么是 CloudFlare 以及使用步骤
+
+Cloudflare 是一家提供内容分发网络(CDN)、DDoS 防护、安全服务和边缘计算解决方案的全球性公司，帮助网站提高性能、安全性和可靠性。因为其慷慨的免费服务而被称为“赛博菩萨”。
+
+本文的流程里，我们首先需要把域名放在 CloudFlare 解析
+
+![cloudflare dns](/assets/067/1.webp)
+
+然后打开邮件功能
+
+![cloudflare email](/assets/067/2.webp)
+
+创建邮箱转发
+
+![cloudflare email](/assets/067/3.webp)
+
+继续
+
+![cloudflare email](/assets/067/4.webp)
+
+根据提示自动添加 DNS 记录，
+
+![cloudflare email](/assets/067/5.webp)
+
+完成后如图
+
+![cloudflare email](/assets/067/6.webp)
+
+现在发送到 `hi@nextforge.dev` 的邮件就会被 CloudFlare 转发到我指定的邮箱了。
+
+## 什么是 Resend 以及使用步骤
+
+Resend 是一个现代化的电子邮件 API 平台，使开发者能够轻松地将高质量的电子邮件功能集成到应用中，提供可靠的邮件发送、跟踪和分析服务。
+
+注册地址：https://resend.com/
+
+这里跳过注册步骤。
+
+进入 Resend 后台，先添加域名
+
+![resend domain](/assets/067/7.webp)
+
+输入要添加的域名后，直接点击「Sign in to CloudFlare」按钮，会自动添加 DNS 记录。
+
+![resend domain](/assets/067/8.webp)
+
+现在前3个记录已经自动添加了，还需要我们手动添加 `_dmarc` 记录。
+
+![resend domain](/assets/067/9.webp)
+
+回到 CloudFlare DNS，添加 `_dmarc` 记录，值为 `v=DMARC1; p= quarantine;`
+
+![cloudflare dns](/assets/067/10.webp)
+
+如果 Resend 很久了还是现实 pending 状态，不要担心，这一步总是要等很久，先继续做下面的步骤
+
+![resend domain](/assets/067/11.webp)
+
+先来创建 API Key，权限选择 Full Access，创建完成后，复制下 API Key
+
+![resend api key](/assets/067/12.webp)
+
+![resend api key](/assets/067/13.webp)
+
+再打开 Audience，复制 Audience ID
+
+![resend api key](/assets/067/14.webp)
+
+现在打开项目，在 `.env` 文件里添加 3 个环境变量
+
+```.env
+RESEND_API_KEY=
+ADMIN_EMAIL=
+RESEND_AUDIENCE_ID=
+```
+
+其中，ADMIN_EMAIL 是你的 Resend 账户邮箱。
+
+## 代码实现
+
+本节只提供实现思路，并留下完整代码的 GitHub 地址，需要完整代码可以自取。
+
+### 前端订阅表单
+
+首先，我们需要一个用户友好的订阅表单。以下是核心实现:
+
+```ts
+// components/footer/Newsletter.tsx
+// 完整代码地址：https://github.com/weijunext/nextjs-15-starter/blob/main/components/footer/Newsletter.tsx
+
+"use client";
+
+export function Newsletter() {
+  // 状态管理：邮箱、订阅状态和错误信息
+  const [email, setEmail] = useState("");
+  const [subscribeStatus, setSubscribeStatus] = useState("idle");
+  const [errorMessage, setErrorMessage] = useState("");
+
+  const handleSubscribe = async (e) => {
+    try {
+      // 设置加载状态
+      setSubscribeStatus("loading");
+      
+      // API调用发送订阅请求
+      const response = await fetch("/api/newsletter", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+        // 设置headers...
+      });
+
+      // 处理响应...
+
+      // 5秒后重置状态...
+    } catch (error) {
+      // 错误处理...
+
+      // 5秒后重置状态...
+    }
+  };
+
+  return (
+    <div>
+      <form onSubmit={handleSubscribe}>
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          disabled={subscribeStatus === "loading"}
+        />
+        <button disabled={subscribeStatus === "loading"}>
+          {subscribeStatus === "loading" ? "订阅中..." : "订阅"}
+        </button>
+        
+        {/* 状态反馈信息 */}
+        {subscribeStatus === "success" && <p>订阅成功！</p>}
+        {subscribeStatus === "error" && <p>{errorMessage}</p>}
+      </form>
+    </div>
+  );
+}
+```
+
+这个组件需要实现：
+- 邮箱输入和提交
+- 订阅成功或者失败的状态提示
+- 提示语可自动关闭
+
+### 邮箱验证
+
+为了确保邮箱地址的有效性，我实现了两个关键函数：
+
+```ts
+// lib/email.ts
+// 完整代码地址：https://github.com/weijunext/nextjs-15-starter/blob/main/lib/email.ts
+
+function validateEmail(email: string) {
+  // 验证邮箱格式
+  // 检查域名长度
+  // 检查一次性邮箱
+  // 检查特殊字符
+}
+
+function normalizeEmail(email: string) {
+  // 标准化处理
+  // 处理别名 (如 Gmail 的点号和加号后缀)
+}
+```
+
+这两个方法创建了一些常见的验证，例如邮箱格式、防止一次性邮箱、处理邮箱别名等，如果你有更多有用的验证方法，可以很方便地进行扩展。
+
+### API 实现
+
+在服务器端，我们需要处理订阅请求：
+
+```ts
+// app/api/newsletter/route.ts
+// 完整代码地址：https://github.com/weijunext/nextjs-15-starter/blob/main/app/api/newsletter/route.ts
+
+import { normalizeEmail, validateEmail } from '@/lib/email';
+import { headers } from 'next/headers';
+import { NextResponse } from 'next/server';
+import { Resend } from 'resend';
+
+// 初始化 Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
+// Resend Audience ID
+const AUDIENCE_ID = process.env.RESEND_AUDIENCE_ID!;
+
+export async function POST(request: Request) {
+  try {
+    // 处理请求数据
+    const { email } = await request.json();
+    const normalizedEmail = normalizeEmail(email);
+
+    // 验证邮箱……
+
+    // 生成退订令牌和链接
+    const unsubscribeToken = Buffer.from(normalizedEmail).toString('base64');
+    const unsubscribeLink = `${process.env.NEXT_PUBLIC_SITE_URL}/unsubscribe?token=${unsubscribeToken}`;
+
+    // 检查用户是否已存在
+    const list = await resend.contacts.list({ audienceId: AUDIENCE_ID });
+    if (list.data?.data.find((item) => item.email === normalizedEmail)) {
+      return NextResponse.json({ success: true, alreadySubscribed: true });
+    }
+
+    // 将用户添加到 Resend Audience
+    await resend.contacts.create({
+      audienceId: AUDIENCE_ID,
+      email: normalizedEmail,
+      // 注释: 可添加更多用户信息
+    });
+
+    // 发送欢迎邮件
+    await resend.emails.send({
+      from: process.env.ADMIN_EMAIL!,
+      to: email,
+      subject: 'Welcome to Next Forge',
+      html: `
+        <h2>Welcome to Next Forge</h2>
+        <p>Thank you for subscribing to the newsletter. You will receive the latest updates and news.</p>
+        <p style="margin-top: 20px; font-size: 12px; color: #666;">
+          If you wish to unsubscribe, please <a href="${unsubscribeLink}">click here</a>
+        </p>
+      `,
+      headers: {
+        "List-Unsubscribe": `<${unsubscribeLink}>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click"
+      }
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('邮箱订阅失败:', error);
+    return NextResponse.json({ error: '服务器处理请求失败' }, { status: 500 });
+  }
+}
+```
+
+这个 API 可以接受邮箱，并把邮箱添加到 Resend 的 Audience 面板，这样可以很方便地管理订阅者，同时向订阅者发送一封订阅成功的提醒。
+
+因为根据邮件营销最佳实践，每一封发给订阅者的邮件都要提供退订入口，所以邮箱里允许用户打开 `unsubscribe` 页面进行退订，我们通过 `Buffer.from(normalizedEmail).toString('base64')` 生成当前用户标识。
+
+### 用户退订页面
+
+用户退订会打开一个携带唯一标识的地址，我们可以写一个服务端组件来接收和处理：
+
+```tsx
+// app/unsubscribe/page.tsx
+// 完整代码地址：https://github.com/weijunext/nextjs-15-starter/blob/main/app/unsubscribe/page.tsx
+export default async function UnsubscribePage({ searchParams }: { searchParams: { token?: string } }) {
+  let status: "error" | "success" = "error";
+  let email = "";
+  let errorMessage = "处理您的退订请求时出现问题";
+
+  const token = searchParams.token;
+
+  if (!token) {
+    errorMessage = "未提供退订令牌";
+  } else {
+    // 执行退订操作
+    const result = await unsubscribe(token);
+    
+    if (result.success) {
+      status = "success";
+      email = result.email || "";
+    } else {
+      errorMessage = result.error || "处理您的退订请求时出现问题";
+    }
+  }
+
+  return (
+    <div>
+      <h1>邮件订阅管理</h1>
+      {status === "success" ? (
+        <div>
+          <p>您已成功退订「Next.js 中文文档」的邮件通知。</p>
+          <p>邮箱: {email}</p>
+        </div>
+      ) : (
+        <div>
+          <p>{errorMessage}</p>
+          <p>请确保您使用了正确的退订链接。</p>
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+## 总结
+
+以上即可完成一个 newsletter 功能，你可以到 [nextforge.dev](https://nextforge.dev) 体验。
+
+文章开头说到，本文是接入基础，所以如果你的产品用户量比较大、业务逻辑复杂、安全要求高，你必须在基础功能以上，自主添加更多安全措施，例如利用 upstash redis 的 limiter 防止恶意重复提交、开启机器人识别、中间件对请求进行安全过滤等等多种措施。
+
+## 关于我
+
+🧑‍💻独立开发｜⛵️出海｜Next.js手艺人
+
+🖥️做过开源：http://github.com/weijunext  
+⌨️写过博客：https://weijunext.com  
+🛠️今年想做独立产品和课程  
+📘Nextjs中文文档：http://nextjscn.org  
+📙全栈开发教程：https://ship.weijunext.com  
+
+欢迎在以下平台关注我：
+
+- Twitter: [@weijunext](https://x.com/weijunext)
+- Github: [Github](https://github.com/weijunext)
+- Blog: [J实验室](https://weijunext.com/)
+- 即刻: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- 微信交流群: [全栈交流群](/make-a-friend)
+

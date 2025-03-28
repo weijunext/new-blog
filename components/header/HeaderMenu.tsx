@@ -25,16 +25,6 @@ const HeaderMenu = () => {
       >
         Next.js中文文档
       </Link>
-      <div className="hidden md:block text-gray-600">|</div>
-      <Link
-        href="https://gapis.money"
-        title="信息差周刊"
-        className="link-default"
-        target="_blank"
-        prefetch={false}
-      >
-        出海周刊
-      </Link>
     </>
   );
 };

@@ -69,7 +69,7 @@ const content = `
 - [Next Idea](https://nextidea.dev/)
 - [nTab](https://ntab.dev/)
 - [OG Image Generator](https://ogimage.click/)
-- [信息差——独立开发者出海周刊](https://gapis.money)
+- [信息差——独立开发者出海周刊](https://gap.weijunext.com)
 - [PH Copilot(Product Hunt 助手)](https://PHCopilot.AI/)
 - HelloAI（已关闭）
 

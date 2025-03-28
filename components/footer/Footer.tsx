@@ -50,10 +50,6 @@ const footerNavigation = {
       href: "https://ntab.dev/?utm_source=weijunext",
     },
     {
-      name: "独立开发者出海周刊",
-      href: "https://gapis.money/?utm_source=weijunext",
-    },
-    {
       name: "Indie Hacker Tools",
       href: "https://github.com/weijunext/indie-hacker-tools",
       rel: "noopener noreferrer nofollow",

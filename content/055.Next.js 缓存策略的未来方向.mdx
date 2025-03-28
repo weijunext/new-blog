@@ -73,7 +73,7 @@ async function getData() {
 export const dynamic = 'force-static' // 添加配置
 
 export default async function Page() {
-  const res = await fetch('https://gapis.money')
+  const res = await fetch('https://gap.weijunext.com')
   const data = await res.json()
   return <div>{data.title}</div>
 }
@@ -85,7 +85,7 @@ export default async function Page() {
 const fetchCache = 'default-cache' // 添加配置
 
 export default async function Page() {
-  const res = await fetch('https://gapis.money')
+  const res = await fetch('https://gap.weijunext.com')
   const data = await res.json()
   return <div>{data.title}</div>
 }

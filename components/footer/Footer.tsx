@@ -20,15 +20,16 @@ const footerNavigation = {
     },
   ],
   learning: [
-    { name: "Next.js 中文文档", href: "https://nextjscn.org/" },
-    { name: "Next.js Practice", href: "https://nextjs.weijunext.com/" },
+    { name: "WeNext", href: "https://wenext.dev/zh" },
     {
       name: "Chrome插件全栈教程",
       href: "https://ship.weijunext.com/",
       rel: "noopener noreferrer nofollow",
     },
+    { name: "Next.js 中文文档", href: "https://nextjscn.org/" },
   ],
   boilerplate: [
+    { name: "Next i18n Starter", href: "https://nextforge.dev/" },
     { name: "Smart Excel AI", href: "https://smartexcel.cc/" },
     {
       name: "Landing Page Boilerplate",
@@ -48,11 +49,6 @@ const footerNavigation = {
     {
       name: "nTab",
       href: "https://ntab.dev/?utm_source=weijunext",
-    },
-    {
-      name: "Indie Hacker Tools",
-      href: "https://github.com/weijunext/indie-hacker-tools",
-      rel: "noopener noreferrer nofollow",
     },
   ],
 };

@@ -128,18 +128,19 @@ export default async function PostDetailsPage({ params }: Props) {
           )}
 
           <Aside icon="🧑‍💻">
-            <div>推荐全栈学习资源：</div>
+            <div>推荐全栈资源：</div>
             <li>
               <Link
-                href="https://nextjscn.org/docs?utm_source=weijunext.com"
-                title="Next.js 中文文档"
+                href="https://nexty.dev/zh"
+                title="Nexty.dev 全栈模板"
                 target="_blank"
                 className="link-underline"
                 prefetch={false}
               >
-                Next.js 中文文档
+                Nexty.dev 全栈模板
               </Link>
-              ：样式和官网一样的中文文档，创造沉浸式Next.js中文学习体验。
+              ：多场景 Next.js SaaS
+              全栈模板，内置了开箱即用的登录、支付、AI、邮件订阅等基础设施，让你真正专注于业务逻辑
             </li>
             <li>
               <Link
@@ -153,6 +154,18 @@ export default async function PostDetailsPage({ params }: Props) {
                 《Chrome插件全栈开发》
               </Link>
               ：真实出海项目的实战教学课，讲解Chrome插件和Next.js端的全栈开发，帮助你半个月内成为全栈出海工程师。
+            </li>
+            <li>
+              <Link
+                href="https://nextjscn.org/docs?utm_source=weijunext.com"
+                title="Next.js 中文文档"
+                target="_blank"
+                className="link-underline"
+                prefetch={false}
+              >
+                Next.js 中文文档
+              </Link>
+              ：样式和官网一样的中文文档，创造沉浸式Next.js中文学习体验。
             </li>
           </Aside>
           <MDXRemote

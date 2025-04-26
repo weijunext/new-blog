@@ -9,7 +9,8 @@ export default async function PostList({
   isSide?: boolean;
   posts: BlogPost[];
 }) {
-  const renderPosts = posts.filter((i) => i.visible);
+  const renderPosts = posts.filter((i) => i.visible && i.slug);
+
   return (
     <ul className="flex flex-col gap-4">
       {renderPosts.map((post: BlogPost) => (

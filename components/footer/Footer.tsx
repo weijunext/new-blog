@@ -29,22 +29,14 @@ const footerNavigation = {
     { name: "Next.js 中文文档", href: "https://nextjscn.org/" },
   ],
   boilerplate: [
-    { name: "Next i18n Starter", href: "https://nextforge.dev/" },
-    { name: "Smart Excel AI", href: "https://smartexcel.cc/" },
-    {
-      name: "Landing Page Boilerplate",
-      href: "https://landingpage.weijunext.com/?utm_source=weijunext",
-    },
-    { name: "Weekly Boilerplate", href: "https://weekly.weijunext.com/" },
+    { name: "Next.js SaaS 全栈模板", href: "https://nexty.dev/zh" },
+    { name: "Next 多语言模板", href: "https://nextforge.dev/" },
+    { name: "博客模板", href: "https://weekly.weijunext.com/" },
   ],
   indieHacker: [
     {
       name: "OG Image Generator",
       href: "https://ogimage.click/?utm_source=weijunext",
-    },
-    {
-      name: "Next Idea",
-      href: "https://nextidea.dev/?utm_source=weijunext",
     },
     {
       name: "nTab",
@@ -130,7 +122,7 @@ export default function Footer() {
               </div>
               <div className="mt-10 md:mt-0">
                 {renderList({
-                  title: "独立开发者出海",
+                  title: "独立开发者工具",
                   items: footerNavigation.indieHacker,
                 })}
               </div>

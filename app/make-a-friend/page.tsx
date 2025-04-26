@@ -65,21 +65,16 @@ const content = `
 
 ## 💡 我的产品
 
+- [Nexty.dev - 全栈 SaaS 模板](https://nexty.dev/zh)
 - [Next.js 中文文档](https://nextjscn.org/)
-- [Next Idea](https://nextidea.dev/)
-- [nTab](https://ntab.dev/)
 - [OG Image Generator](https://ogimage.click/)
-- [信息差——独立开发者出海周刊](https://gap.weijunext.com)
-- [PH Copilot(Product Hunt 助手)](https://PHCopilot.AI/)
-- HelloAI（已关闭）
+- [nTab](https://ntab.dev/)
 
-## 🧑‍💻 我的开源与教程
+## 🧑‍💻 我的教程与模板
 
-- [Next.js 生态圈技术分享](https://github.com/weijunext/nextjs-learn-demos)
-- [Chrome插件全栈开发教程(付费)](https://ship.weijunext.com/)
-- [SmartExcel - SaaS 模板](https://smartexcel.cc/)
-- [Landing Page Boilerplate](https://landingpage.weijunext.com)
-- [Weekly Boilerplate](https://weekly.weijunext.com)
+- [Chrome插件全栈开发教程](https://ship.weijunext.com/)
+- [落地页模板](https://landingpage.weijunext.com)
+- [博客模板](https://weekly.weijunext.com)
 
 ## 📫 联系我
 

@@ -73,4 +73,11 @@ const links = [
     description: "Front-end development, Open source",
     link: "https://simonme.netlify.app/",
   },
+  {
+    logo: "https://liruifengv.com/_astro/avatar_Z1WBhMX.webp",
+    title: "liruifengv",
+    description:
+      "liruifengv 的个人网站。分享技术、生活、读书、随笔等。李瑞丰的个人博客。",
+    link: "https://liruifengv.com/",
+  },
 ];

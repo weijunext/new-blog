@@ -168,7 +168,7 @@ registry 选择刚才创建的那一个，然后 Save
 
 ### 代码添加工作流和 Dockerfile 配置信息
 
-在根目录创建文件 `.github/workflow/docker-image.yml`，这是一个 GitHub Actions 工作流配置文件，用来自动化构建和发布 Docker 镜像：
+在根目录创建文件 `.github/workflows/docker-image.yml`，这是一个 GitHub Actions 工作流配置文件，用来自动化构建和发布 Docker 镜像：
 
 ```yml
 name: Create and publish a Docker image
@@ -356,18 +356,12 @@ ENV NEXT_PUBLIC_SITE_NAME=${NEXT_PUBLIC_SITE_NAME}
 - [Advanced](https://docs.dokploy.com/docs/core/applications/advanced)
 - [GHCR](https://docs.dokploy.com/docs/core/registry/ghcr)
 
-还有 javahu 老哥的工作流：
-- [workflow-demo](https://github.com/javayhu/dokploy-demo/commit/bdc5249e93ac2301e6d25b6808698ea29b7e8509)
-
 ## 关于我
 
 🧑‍💻独立开发｜⛵️出海｜Next.js手艺人
 
 🖥️做过开源：http://github.com/weijunext  
 ⌨️写过博客：https://weijunext.com  
-🛠️今年想做独立产品和课程  
-📘Nextjs中文文档：http://nextjscn.org  
-📙全栈开发教程：https://ship.weijunext.com  
 
 欢迎在以下平台关注我：
 

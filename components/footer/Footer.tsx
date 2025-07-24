@@ -36,7 +36,7 @@ const footerNavigation = {
   indieHacker: [
     {
       name: "OG Image Generator",
-      href: "https://ogimage.click/?utm_source=weijunext",
+      href: "https://myogimage.com/?utm_source=weijunext",
     },
     {
       name: "nTab",

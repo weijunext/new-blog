@@ -324,24 +324,41 @@ node_modules
             ## 其他更多环境变量
 ```
 
-对应的，在 `Dockerfile` 的构建阶段接收这些环境变量：
+对应的，在 `Dockerfile` 的构建阶段（builder）和运行阶段（runner）接收这些环境变量：
 
 ```Dockerfile
 ## 其他内容不变
 
-# Rebuild the source code only when needed
+## 修改 builder
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# 声明构建参数
+### 声明构建参数
 ARG NEXT_PUBLIC_SITE_URL
 ARG NEXT_PUBLIC_SITE_NAME
-
-# 设置为环境变量，使应用能够访问
+### 接收环境变量
 ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
 ENV NEXT_PUBLIC_SITE_NAME=${NEXT_PUBLIC_SITE_NAME}
+
+ENV NEXT_TELEMETRY_DISABLED 1
+
+RUN corepack enable && corepack prepare pnpm@8.15.4 --activate && pnpm build
+
+## 修改runner
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+### 声明构建参数
+ARG NEXT_PUBLIC_SITE_URL
+ARG NEXT_PUBLIC_SITE_NAME
+### 接收环境变量
+ENV NEXT_PUBLIC_SITE_URL=${NEXT_PUBLIC_SITE_URL}
+ENV NEXT_PUBLIC_SITE_NAME=${NEXT_PUBLIC_SITE_NAME}
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
 
 ## 其他内容不变
 ```

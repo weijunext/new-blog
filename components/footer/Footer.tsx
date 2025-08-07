@@ -11,7 +11,6 @@ const footerNavigation = {
   blog: [
     { name: "J实验室", href: "https://weijunext.com/", target: "_self" },
     { name: "关于我", href: "/make-a-friend", target: "_self" },
-    { name: "赞助榜", href: "/thanks", target: "_self" },
     { name: "友链", href: "/links", target: "_self" },
     {
       name: "版权声明",
@@ -20,7 +19,6 @@ const footerNavigation = {
     },
   ],
   learning: [
-    { name: "WeNext", href: "https://wenext.dev/zh" },
     {
       name: "Chrome插件全栈教程",
       href: "https://ship.weijunext.com/",
@@ -29,7 +27,7 @@ const footerNavigation = {
     { name: "Next.js 中文文档", href: "https://nextjscn.org/" },
   ],
   boilerplate: [
-    { name: "Next.js SaaS 全栈模板", href: "https://nexty.dev/zh" },
+    { name: "Next.js SaaS 全栈模板", href: "https://nexty.dev/" },
     { name: "Next 多语言模板", href: "https://nextforge.dev/" },
     { name: "博客模板", href: "https://weekly.weijunext.com/" },
   ],

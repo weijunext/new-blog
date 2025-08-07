@@ -18,7 +18,7 @@ export default async function Home() {
           <div className="space-y-3">
             <div className="grid grid-cols-12 gap-4">
               <a
-                href="https://nexty.dev/zh"
+                href="https://nexty.dev/"
                 title="Nexty.dev"
                 target="_blank"
                 className="col-span-2 text-blue-500 hover:text-blue-600 underline font-medium"

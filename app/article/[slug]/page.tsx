@@ -131,7 +131,7 @@ export default async function PostDetailsPage({ params }: Props) {
             <div>推荐全栈资源：</div>
             <li>
               <Link
-                href="https://nexty.dev/zh"
+                href="https://nexty.dev/"
                 title="Nexty.dev 全栈模板"
                 target="_blank"
                 className="link-underline"

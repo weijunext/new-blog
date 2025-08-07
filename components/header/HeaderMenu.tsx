@@ -27,7 +27,7 @@ const HeaderMenu = () => {
       </Link>
       <div className="hidden md:block text-gray-600">|</div>
       <Link
-        href="https://nexty.dev/zh"
+        href="https://nexty.dev/"
         title="Next.js全栈模板"
         className="link-default"
         target="_blank"

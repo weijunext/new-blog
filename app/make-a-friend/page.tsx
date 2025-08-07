@@ -65,7 +65,7 @@ const content = `
 
 ## 💡 我的产品
 
-- [Nexty.dev - 全栈 SaaS 模板](https://nexty.dev/zh)
+- [Nexty.dev - 全栈 SaaS 模板](https://nexty.dev/)
 - [Next.js 中文文档](https://nextjscn.org/)
 - [OG Image Generator](https://myogimage.com/)
 - [nTab](https://ntab.dev/)

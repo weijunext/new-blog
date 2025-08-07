@@ -1,0 +1,151 @@
+---
+title: 构建全栈模板 Nexty.dev：100天内从零到90位付费客户
+description: Next.js SaaS 模板市场已经是一片红海，但如果你能解决开发者的真实痛点，仍然有机会。我相信自己做到了这一点，因为 Nexty 在90天内就获得了70多位客户。
+slug: nexty-is-a-top3-nextjs-saas-boilerplate
+tags: NextJS,NextJS实战
+date: 2025-08-06
+visible: published
+pin: pin
+---
+
+今年5月份，我在博客发了一篇[文章](/article/nexty-the-best-saas-template-2025)介绍正在开发的一款 Next.js SaaS 全栈模板 - Nexty.dev。7月份，Nexty 新增了一套 AI 生图网站模板，并且发布了全新的落地页。不知不觉已经发布超过100天，这段时间得到很多用户的反馈，也解决了很多问题，但开发计划仍然有很多未完成，因此常常顾不上宣传。趁着发布100天的节点，重新梳理了一下 Nexty 的特色，写了这篇文章。
+
+<Aside>
+如果你对 Nexty 感兴趣，请加我微信领取专属优惠码再下单，微信号：bigye_chengpu
+</Aside>
+
+## Nexty 的独特之处
+
+得益于早期用户的宝贵反馈，Nexty 不断完善，已成有许多做的比同类 Next.js SaaS 模板优秀的地方了。以下是它的独特之处：
+
+### 1. 完美的着陆页
+
+Nexty 的落地页采用了通用结构的设计，你只需要修改文本和图片就能变成自己的漂亮的产品落地页。
+
+![landingpage](/assets/069/landingpage-hero.png)
+
+### 2. 多语言支持
+
+内置国际化功能，从第一天起就能面向全球市场。
+
+### 3. 灵活的身份验证
+
+Nexty 集成了 Supabase 身份验证，支持多种登录方式，包括社交登录和魔法链接，并且引入 Cloudflare Turnstile 防止机器人攻击。
+
+![login](/assets/069/login.png)
+
+
+### 4. 完整的邮件解决方案
+
+完整的邮件解决方案，集成 Cloudflare 域名邮箱和 Resend，让你能够用域名品牌和用户建立联系，这样更有利于品牌宣传，也能提升用户的信任感。
+
+Nexty 还内置了邮件订阅功能，从上线第一天你就能够和用户建立有效的连接。
+
+![email](/assets/069/email.png)
+
+
+### 5. SEO 优化
+
+Nexty 优化了页面结构并提供全面的元数据处理，让搜索引擎快速关注到你的网站。
+
+![seo](/assets/069/seo.png)
+
+
+### 6. 可视化定价管理 - Nexty 独有功能
+
+与其他使用复杂 JSON 配置的 Next.js SaaS 模板不同，Nexty 为管理员提供了可视化管理定价的功能。轻松管理定价、自动与 Stripe 同步，并支持多语言——所有这些都通过直观的界面实现，这是其他模板无法提供的。
+
+设计这个功能是因为我曾经被修改定价困扰过，每次改完都要排查是否属于开发/生产环境、定价信息是否和 Stripe 上设置的一样、自动填充的优惠码是否有效。这些问题任何一个出错，都会导致生产环境无法收款。
+
+![pricing](/assets/069/pricing-1.png)
+
+
+Nexty 的可视化定价管理是这样做的：
+
+
+1. 强制选择所属环境，确保开发环境和生产环境的数据隔离，右侧可以设置卡片排序和是否激活
+
+  ![pricing](/assets/069/pricing-2.png)
+
+2. 从 Stripe 一键拉取定价信息、选择优惠券。以前只能一遍遍检查从 Stripe 复制的数据是否有误，现在只需要复制 price ID，其他数据都是自动填充，安全、高效！
+
+  ![pricing](/assets/069/pricing-3.png)
+
+
+3. 填写定价卡片上要展示的信息，所有内容都在右侧实时预览。右侧的预览组件跟用户端展示的是同一个组件，编辑定价的时候所见即所得，不用担心最终上线出问题。
+
+  ![pricing](/assets/069/pricing-4.png)
+  ![pricing](/assets/069/pricing-5.png)
+
+4. 因为模板是支持多语言的，所以定价卡片也需要能够预览和保存多语言的数据。这里我加了个AI翻译的功能，填写完上面的表单后，直接让AI翻译一波，就能在预览组件那边查看多语言定价信息了。
+
+  ![pricing](/assets/069/pricing-6.png)
+
+5. 你可以很快地在页面创建多种定价卡片，即使同时有月付、年付、一次性付款的定价，前端也能很好看地展示出来。
+
+  ![pricing](/assets/069/pricing-7.png)
+
+### 7. AI 测试广场 - Nexty 独有功能
+
+当其他 Next.js 模板只提供基础 API 封装时，Nexty 提供了一个 AI 测试广场。如果你不擅长 AI 功能开发，可以通过这个页面的代码快速理解前后端实现的方式，如果你擅长 AI 功能开发，那么可以把这个页面当作 AI 模式测试广场，在新模型发布的时候，可以第一时间进行测试。
+
+AI 测试广场提供了5种主流的 AI 功能，包含：单轮对话、多轮对话、文生图、图生图、视频生成。
+
+![ai-1](/assets/069/ai-1.png)
+
+
+除此之外，现在购买 Nexty 的用户还能获得一套基于 Nexty 开发的 AI 生图模板，这套模板拥有完整的 AI 功能处理逻辑和会员系统，你只需要将页面改成你喜欢的样子就可以发布上线。已经有 Nexty 用户基于这套 AI 生图模板上线 AI 图片站并成功开单。
+
+![ai-2](/assets/069/ai-2.png)
+
+### 8. 高级 CMS - 最全面的解决方案
+
+Nexty 的 CMS 远超简单的博客功能。不仅能用来发布、管理博客，还能用来构建付费内容平台，它具备访问权限控制、订阅层级和无缝多语言支持。
+
+![cms](/assets/069/cms-1.png)
+
+![cms](/assets/069/cms-2.png)
+
+在用户端，看到的效果是这样的：
+
+![cms](/assets/069/cms-3.png)
+
+
+## Nexty 的技术栈
+
+采用最适合出海项目的技术栈：Next.js 15、TailwindCSS、Shadcn/ui、Supabase、Stripe、Resend、Upstash、AI SDK、OpenRouter 和 Replicate。
+
+你可以部署到任何地方，Nexty 支持 Vercel、Dokploy 或任何 VPS——选择最适合你工作流程的方案。
+
+## 总结
+
+在这100天的旅程中，我获得了许多真实用户的评价，他们有的从 Nexty 的代码库学到知识，有的使用 Nexty 构建了成功的 SaaS 产品，有的感叹 Nexty 的售后服务超出预期。
+
+![testimonials](/assets/069/testimonials.png)
+
+只有同时提供优秀的产品和优秀的售后服务，才会有用户愿意为你发声。我很自信 Nexty 正在为用户提供 top3 的 next.js saas 模板和 top1 的售后服务。
+
+立即获取 Nexty，开始构建你的 SaaS 👉 https://nexty.dev/
+
+<Aside>
+如果你对 Nexty 感兴趣，请加我微信领取专属优惠码再下单，微信号：bigye_chengpu
+</Aside>
+
+## 关于我
+
+🧑‍💻独立开发｜⛵️出海｜Next.js手艺人
+
+🖥️做过开源：http://github.com/weijunext  
+⌨️写过博客：https://weijunext.com  
+🛠️今年想做独立产品和课程  
+📙Next.js SaaS 全栈模板：https://nexty.dev/  
+📘Nextjs中文文档：http://nextjscn.org  
+
+欢迎在以下平台关注我：
+
+- Twitter: [@weijunext](https://x.com/weijunext)
+- Github: [Github](https://github.com/weijunext)
+- Blog: [J实验室](https://weijunext.com/)
+- 即刻: [BigYe程普](https://m.okjike.com/users/13EF1128-B51B-4D22-8B95-16BB406529F0)
+- 微信交流群: [全栈交流群](/make-a-friend)
+

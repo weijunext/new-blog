@@ -40,6 +40,10 @@ const footerNavigation = {
       name: "nTab",
       href: "https://ntab.dev/?utm_source=weijunext",
     },
+    {
+      name: "Dofollow.Tools",
+      href: "https://dofollow.tools/?utm_source=weijunext",
+    },
   ],
 };
 
